@@ -119,3 +119,45 @@ def test_write_tags_missing_or_unsupported():
     assert write_tags("/nonexistent/x.mp3", {"title": "T"}) is False
     assert write_tags("/nonexistent/x.txt", {"title": "T"}) is False
     assert write_tags("/nonexistent/x.mp3", {}) is False
+
+
+def test_run_library_retag(tmp_path):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from mutagen.id3 import ID3, TIT2
+    from app.db.database import Base
+    from app.db.models import SyncJob, Track
+    from app.metadata.tagging import run_library_retag
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    TestingSession = sessionmaker(bind=engine, future=True)
+
+    p = str(tmp_path / "song.mp3")
+    tags = ID3()
+    tags.add(TIT2(text="WRONG"))
+    tags.save(p)
+    missing = str(tmp_path / "gone.mp3")
+
+    db = TestingSession()
+    db.add(Track(title="Ditto", artist="NewJeans", album="Get Up",
+                 track_number=2, year=2023, status="completed", local_path=p))
+    db.add(Track(title="Ghost", artist="X", status="completed", local_path=missing))
+    db.add(Track(title="Pending", artist="Y", status="pending", local_path=p))
+    job = SyncJob(playlist_id=None, status="running")
+    db.add(job)
+    db.commit()
+    jid = job.id
+    db.close()
+
+    run_library_retag(TestingSession, jid)
+
+    out = read_tags(p)
+    assert (out["title"], out["artist"], out["album"]) == ("Ditto", "NewJeans", "Get Up")
+    assert (out["track_number"], out["year"]) == (2, 2023)
+    db = TestingSession()
+    job = db.get(SyncJob, jid)
+    assert job.status == "failed"  # one missing file
+    assert job.tracks_seen == 2  # pending track untouched
+    assert job.tracks_downloaded == 1 and job.tracks_failed == 1
+    db.close()

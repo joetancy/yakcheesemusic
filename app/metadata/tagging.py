@@ -167,3 +167,63 @@ def write_tags(file_path: str, tags: dict) -> bool:
     except Exception as e:
         log.warning("write_tags failed for %s: %s", file_path, e)
         return False
+
+
+def run_library_retag(session_factory, job_id: int) -> None:
+    """One-shot backfill: stamp every completed track's file from DB data."""
+    import os
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from app.db.models import SyncJob, Track
+    db = session_factory()
+    try:
+        job = db.get(SyncJob, job_id)
+        rows = db.execute(select(Track).where(Track.status == "completed")).scalars().all()
+        targets = [(t.id, t.local_path) for t in rows if t.local_path]
+        log.info("job=%s action=retag status=start files=%s", job_id, len(targets))
+        if job:
+            job.tracks_seen = len(targets)
+            db.commit()
+        ok, failed = 0, []
+        for tid, path in targets:
+            t = db.get(Track, tid)
+            if not t or not path or not os.path.exists(path):
+                failed.append(path or str(tid))
+                continue
+            try:
+                done = write_tags(path, {
+                    "title": t.title, "artist": t.artist,
+                    "albumartist": t.artist, "album": t.album,
+                    "tracknumber": t.track_number, "date": t.year,
+                    "isrc": t.isrc})
+            except Exception as e:
+                log.warning("job=%s retag error %s: %s", job_id, path, e)
+                done = False
+            if done:
+                ok += 1
+            else:
+                failed.append(path)
+        if job:
+            job.tracks_downloaded = ok
+            job.tracks_failed = len(failed)
+            if failed:
+                job.error = "; ".join(failed[:10])
+            job.status = "success" if not failed else "failed"
+            job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            db.commit()
+        log.info("job=%s action=retag status=done ok=%s failed=%s",
+                 job_id, ok, len(failed))
+    except Exception as e:
+        log.exception("job=%s action=retag status=error", job_id)
+        try:
+            job = db.get(SyncJob, job_id)
+            if job:
+                from datetime import datetime, timezone
+                job.status = "failed"
+                job.error = str(e)[:1000]
+                job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()
