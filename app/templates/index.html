@@ -51,15 +51,33 @@
 function esc(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 async function rgSweep(){
   if(!confirm('Tag the whole library with ReplayGain at −14 LUFS? Already-tagged files are skipped.')) return;
-  document.getElementById('rg-result').textContent='sweep started…';
   const r=await fetch('/api/replaygain',{method:'POST'});
-  document.getElementById('rg-result').textContent=JSON.stringify(await r.json());
+  trackJob(await r.json(), 'rg-result');
 }
 async function rescan(remove){
   if(remove && !confirm('Delete every unplayable file and queue it for re-download?')) return;
-  document.getElementById('rescan-result').textContent='rescan started…';
   const r=await fetch('/api/library/rescan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({remove})});
-  document.getElementById('rescan-result').textContent=JSON.stringify(await r.json());
+  trackJob(await r.json(), 'rescan-result');
+}
+async function dedup(remove){
+  if(remove && !confirm('Delete every file that no track references? Referenced files are never touched.')) return;
+  const r=await fetch('/api/library/dedup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({remove})});
+  trackJob(await r.json(), 'dedup-result');
+}
+async function trackJob(data, elId){
+  const el=document.getElementById(elId);
+  if(!data || !data.ok){ el.textContent=JSON.stringify(data); return; }
+  const id=data.job_id;
+  el.textContent=`job ${id}: running…`;
+  const timer=setInterval(async ()=>{
+    try{
+      const j=await (await fetch('/api/jobs/'+id)).json();
+      let msg=`job ${id}: ${j.status} (seen ${j.tracks_seen||0}, done ${j.tracks_downloaded||0}, failed ${j.tracks_failed||0})`;
+      if(j.error) msg+=` — ${j.error.slice(0,300)}`;
+      el.textContent=msg;
+      if(j.status!=='running') clearInterval(timer);
+    }catch(e){ clearInterval(timer); el.textContent=`job ${id}: status unknown`; }
+  },2000);
 }
 function set(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
 function tlist(items){

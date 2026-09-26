@@ -22,7 +22,8 @@ def get_job(job_id: int, db: Session = Depends(get_db)):
     if not j:
         raise HTTPException(status_code=404, detail="Not found")
     return {"id": j.id, "status": j.status, "error": j.error,
-            "tracks_seen": j.tracks_seen, "tracks_downloaded": j.tracks_downloaded}
+            "tracks_seen": j.tracks_seen, "tracks_downloaded": j.tracks_downloaded,
+            "tracks_failed": j.tracks_failed}
 
 
 @router.get("/api/stats")
