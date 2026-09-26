@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .venv/
+.env
 data/*.db
 data/*.db-journal
 data/*.db-shm

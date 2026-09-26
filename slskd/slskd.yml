@@ -8,17 +8,14 @@ shares:
     - /music
 soulseek:
   description: yakcheesemusic
-  username: ${SOULSEEK_USERNAME:-change-me}
-  password: ${SOULSEEK_PASSWORD:-change-me}
+  # username/password come from SLSKD_SLSK_USERNAME / SLSKD_SLSK_PASSWORD
+  # in .env (YAML would override env vars, so they must NOT be set here).
   listen_port: 50300
 web:
   port: 5030
   authentication:
-    api_keys:
-      yakcheesemusic:
-        key: ${SLSKD_API_KEY:-change-me}
-        role: readwrite
-        cidr: 0.0.0.0/0
+    # API key comes from the SLSKD_API_KEY env var (primary key, admin role).
+    # Do NOT add api_keys here — slskd does not expand ${...} in this file.
 transfers:
   download:
     retry:

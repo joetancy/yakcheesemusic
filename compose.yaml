@@ -23,6 +23,8 @@ services:
     image: slskd/slskd:latest
     container_name: slskd
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "5030:5030"   # web UI (debugging)
       - "50300:50300" # soulseek listen port (better results when reachable)
