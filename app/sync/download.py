@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-log = logging.getLogger("music-sync")
+log = logging.getLogger("yakcheesemusic")
 
 
 def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:

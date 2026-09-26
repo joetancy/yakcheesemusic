@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import PlaylistTrack, Track
 
-log = logging.getLogger("music-sync")
+log = logging.getLogger("yakcheesemusic")
 
 
 def track_in_use_elsewhere(db: Session, track_id: int, exclude_playlist_id: int) -> bool:

@@ -1,4 +1,4 @@
-# slskd config for music-sync. Fill in your Soulseek account below
+# slskd config for yakcheesemusic. Fill in your Soulseek account below
 # (free signup at https://www.slsknet.org), then `docker compose up -d slskd`.
 directories:
   incomplete: /downloads/incomplete
@@ -7,7 +7,7 @@ shares:
   directories:
     - /music
 soulseek:
-  description: music-sync
+  description: yakcheesemusic
   username: ${SOULSEEK_USERNAME:-change-me}
   password: ${SOULSEEK_PASSWORD:-change-me}
   listen_port: 50300
@@ -15,7 +15,7 @@ web:
   port: 5030
   authentication:
     api_keys:
-      musicsync:
+      yakcheesemusic:
         key: ${SLSKD_API_KEY:-change-me}
         role: readwrite
         cidr: 0.0.0.0/0

@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import os
 
-log = logging.getLogger("music-sync")
+log = logging.getLogger("yakcheesemusic")
 
 LOSSLESS = {"flac", "alac", "wav", "wv", "ape", "aiff", "aif"}
 

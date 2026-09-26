@@ -10,7 +10,7 @@ import logging
 import os
 import subprocess
 
-log = logging.getLogger("music-sync")
+log = logging.getLogger("yakcheesemusic")
 
 SUPPORTED_EXTS = {".mp3", ".flac", ".m4a", ".mp4", ".aac", ".ogg", ".oga",
                   ".opus", ".wav", ".aif", ".aiff", ".wv"}

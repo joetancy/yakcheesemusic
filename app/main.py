@@ -24,7 +24,7 @@ from app.sync.scheduler import start_scheduler, shutdown_scheduler
 
 settings = get_settings()
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
-log = logging.getLogger("music-sync")
+log = logging.getLogger("yakcheesemusic")
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -53,12 +53,12 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
     start_scheduler()
-    log.info("music-sync started music_dir=%s", settings.music_dir)
+    log.info("yakcheesemusic started music_dir=%s", settings.music_dir)
     yield
     shutdown_scheduler()
 
 
-app = FastAPI(title="music-sync", lifespan=lifespan)
+app = FastAPI(title="yakcheesemusic", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 app.include_router(playlists_api.router)

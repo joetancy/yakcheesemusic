@@ -1,12 +1,12 @@
 services:
-  music-sync:
+  yakcheesemusic:
     build: .
-    container_name: music-sync
+    container_name: yakcheesemusic
     restart: unless-stopped
     ports:
       - "9000:9000"
     environment:
-      DATABASE_URL: sqlite:////app/data/music-sync.db
+      DATABASE_URL: sqlite:////app/data/yakcheesemusic.db
       MUSIC_DIR: /music
       TZ: Asia/Singapore
       LOG_LEVEL: INFO

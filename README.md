@@ -1,4 +1,4 @@
-# music-sync
+# yakcheesemusic
 
 Self-hosted playlist sync: Spotify playlists are the source of truth, Soulseek (via slskd) is the download layer.
 
@@ -12,12 +12,12 @@ docker compose up -d --build
 
 Volumes:
 
-- `./data:/app/data` — SQLite DB (`music-sync.db`)
+- `./data:/app/data` — SQLite DB (`yakcheesemusic.db`)
 - `/srv/media/data/media/music:/music` — music library
 
 Env (see `compose.yaml`):
 
-- `DATABASE_URL=sqlite:////app/data/music-sync.db`
+- `DATABASE_URL=sqlite:////app/data/yakcheesemusic.db`
 - `MUSIC_DIR=/music`
 - `TZ=Asia/Singapore`
 - `LOG_LEVEL=INFO`

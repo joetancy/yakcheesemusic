@@ -151,12 +151,12 @@ class SpotifyProvider(PlaylistProvider):
                 return _fetch_via_api(pid)
             except Exception as e:
                 # e.g. 403 when the app owner's account has no Premium
-                logging.getLogger("music-sync").warning(
+                logging.getLogger("yakcheesemusic").warning(
                     "Spotify API failed (%s), trying web harvest", e)
         try:
             return SpotifyWebProvider().get_playlist(url)
         except Exception as e:
-            logging.getLogger("music-sync").warning(
+            logging.getLogger("yakcheesemusic").warning(
                 "Spotify web harvest failed (%s), using embed fallback", e)
         return _fetch_via_embed(pid)  # capped at 100 tracks
 

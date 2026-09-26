@@ -3,7 +3,7 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    database_url: str = "sqlite:////app/data/music-sync.db"
+    database_url: str = "sqlite:////app/data/yakcheesemusic.db"
     music_dir: str = "/music"
     tz: str = "Asia/Singapore"
     log_level: str = "INFO"

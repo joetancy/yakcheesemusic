@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Playlist, PlaylistTrack
 from app.sync.library import sanitize
 
-log = logging.getLogger("music-sync")
+log = logging.getLogger("yakcheesemusic")
 
 HEADER = "#EXTM3U"
 

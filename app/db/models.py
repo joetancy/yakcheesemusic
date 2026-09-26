@@ -1,4 +1,4 @@
-"""SQLAlchemy models for music-sync. See PLAN.md section 5."""
+"""SQLAlchemy models for yakcheesemusic. See PLAN.md section 5."""
 from __future__ import annotations
 
 from datetime import datetime, timezone

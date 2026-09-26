@@ -1,5 +1,5 @@
 [project]
-name = "music-sync"
+name = "yakcheesemusic"
 version = "0.1.0"
 description = "Self-hosted playlist sync: Spotify playlists as source of truth, Soulseek as download layer."
 readme = "README.md"

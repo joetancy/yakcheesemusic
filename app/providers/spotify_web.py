@@ -15,7 +15,7 @@ import httpx
 
 from app.providers.base import PlaylistProvider, ProviderPlaylist, ProviderTrack
 
-log = logging.getLogger("music-sync")
+log = logging.getLogger("yakcheesemusic")
 _UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
        "Chrome/120 Safari/537.36")
 _PATHFINDER = "https://api-partner.spotify.com/pathfinder/v2/query"

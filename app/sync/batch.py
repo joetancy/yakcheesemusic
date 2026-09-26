@@ -15,7 +15,7 @@ from sqlalchemy import select
 
 from app.db.models import Playlist, PlaylistTrack, SyncJob, Track
 
-log = logging.getLogger("music-sync")
+log = logging.getLogger("yakcheesemusic")
 
 TODO_STATUSES = {"pending", "needs_review", "failed", "matched", "searching"}
 

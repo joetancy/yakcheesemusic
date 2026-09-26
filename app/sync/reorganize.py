@@ -13,7 +13,7 @@ from app.metadata.resolve import resolve_metadata
 from app.metadata.tags import read_tags
 from app.sync.library import library_path, place_file, sanitize
 
-log = logging.getLogger("music-sync")
+log = logging.getLogger("yakcheesemusic")
 
 
 def resolved_location(track: Track, music_dir: str) -> Path:

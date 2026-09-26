@@ -1,1 +1,1 @@
-"""music-sync package."""
+"""yakcheesemusic package."""

@@ -1,4 +1,4 @@
-# PLAN.md — music-sync implementation plan
+# PLAN.md — yakcheesemusic implementation plan
 
 Source of truth: Spotify playlists. Download layer: Soulseek via slskd.
 Library: `/music` → `/srv/media/data/media/music`. TZ: Asia/Singapore.
