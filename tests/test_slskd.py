@@ -317,3 +317,100 @@ def test_run_library_dedup_dry_run(tmp_path, monkeypatch):
     job = db.get(SyncJob, jid)
     assert job.status == "success" and job.tracks_downloaded == 1
     db.close()
+
+
+def test_slskd_429_retried(monkeypatch):
+    import app.downloaders.slskd as mod
+    from app.downloaders.slskd import SlskdDownloader
+    monkeypatch.setattr(mod.time, "sleep", lambda s: None)
+
+    posts = []
+
+    class Resp:
+        def __init__(self, code, body=None):
+            self.status_code = code
+            self._body = body or {}
+            self.headers = {}
+            self.text = "{}"
+
+        def json(self):
+            return self._body
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise RuntimeError(self.status_code)
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, url, **kw):
+            posts.append(url)
+            if len(posts) == 1:
+                return Resp(429)
+            return Resp(200, {"id": "sid1"})
+
+        def get(self, url, **kw):
+            if url.endswith("/responses"):
+                return Resp(200, [])
+            return Resp(200, {"state": "completed"})
+
+        def delete(self, url, **kw):
+            return Resp(200, {})
+
+    monkeypatch.setattr(mod.httpx, "Client", FakeClient)
+    dl = SlskdDownloader(url="http://x", api_key="k", search_timeout_s=5)
+    assert dl.search("T", "A") == []  # no results, but no 429 explosion
+    assert posts[0] == posts[1]  # first query retried after the 429
+
+
+def test_slskd_429_gives_up_after_retries(monkeypatch):
+    import httpx as real_httpx
+    import app.downloaders.slskd as mod
+    from app.downloaders.slskd import SlskdDownloader
+    monkeypatch.setattr(mod.time, "sleep", lambda s: None)
+
+    class Resp:
+        status_code = 429
+        headers = {}
+        text = "slow down"
+
+        def json(self):
+            return {}
+
+        def raise_for_status(self):
+            raise RuntimeError(429)
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, url, **kw):
+            return Resp()
+
+        def get(self, url, **kw):
+            return Resp()
+
+        def delete(self, url, **kw):
+            return Resp()
+
+    monkeypatch.setattr(mod.httpx, "Client", FakeClient)
+    dl = SlskdDownloader(url="http://x", api_key="k", search_timeout_s=5)
+    try:
+        dl.search("T", "A")
+        assert False, "expected failure"
+    except Exception as e:
+        assert "429" in str(e) or "rate" in str(e).lower() or "Too Many" in str(e)
+    assert real_httpx is not None

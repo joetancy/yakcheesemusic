@@ -13,6 +13,10 @@ import httpx
 from app.config import get_settings
 from app.downloaders.base import DownloaderBase, SearchResult
 
+import logging
+
+log = logging.getLogger("yakcheesemusic")
+
 AUDIO_EXTS = {".flac", ".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".wv", ".ape", ".alac"}
 
 
@@ -83,6 +87,25 @@ class SlskdDownloader(DownloaderBase):
     def _headers(self) -> dict:
         return {"X-API-Key": self.key}
 
+    def _call(self, client: httpx.Client, method: str, url: str, **kw) -> httpx.Response:
+        """Single retry layer: ride out 429/5xx with backoff (honors Retry-After)."""
+        delay = 2.0
+        last = None
+        for _ in range(4):
+            r = getattr(client, method)(url, headers=self._headers(), **kw)
+            if r.status_code not in (429, 502, 503, 504):
+                return r
+            last = r
+            try:
+                wait = float(r.headers.get("Retry-After", delay))
+            except (TypeError, ValueError):
+                wait = delay
+            wait = min(wait, 30.0)
+            log.warning("slskd %s %s -> retry in %.0fs", method.upper(), url, wait)
+            time.sleep(wait)
+            delay *= 2
+        return last
+
     def _check(self, r: httpx.Response) -> None:
         if r.status_code in (401, 403):
             raise RuntimeError("slskd rejected API key (401/403)")
@@ -102,22 +125,21 @@ class SlskdDownloader(DownloaderBase):
 
     def _run_query(self, c: httpx.Client, query: str, title: str,
                    artist: str, album: str) -> list[SearchResult]:
-        r = c.post(f"{self.base}/api/v0/searches", json={"searchText": query},
-                   headers=self._headers())
+        r = self._call(c, "post", f"{self.base}/api/v0/searches",
+                       json={"searchText": query})
         self._check(r)
         sid = r.json().get("id")
         if not sid:
             raise RuntimeError(f"slskd search returned no id: {r.text[:200]}")
         deadline = time.time() + self.search_timeout
         while time.time() < deadline:
-            s = c.get(f"{self.base}/api/v0/searches/{sid}", headers=self._headers())
+            s = self._call(c, "get", f"{self.base}/api/v0/searches/{sid}")
             self._check(s)
             state = (s.json().get("state") or "").lower()
             if state in ("completed", "cancelled", "timedout"):
                 break
             time.sleep(2)
-        resp = c.get(f"{self.base}/api/v0/searches/{sid}/responses",
-                     headers=self._headers())
+        resp = self._call(c, "get", f"{self.base}/api/v0/searches/{sid}/responses")
         self._check(resp)
         out: list[SearchResult] = []
         for user in resp.json() or []:
@@ -126,7 +148,7 @@ class SlskdDownloader(DownloaderBase):
                 sr = file_to_result(username, f)
                 if sr:
                     out.append(sr)
-        c.delete(f"{self.base}/api/v0/searches/{sid}", headers=self._headers())
+        self._call(c, "delete", f"{self.base}/api/v0/searches/{sid}")
         return out
 
     def download(self, result: SearchResult, dest_dir: str) -> str:
@@ -136,17 +158,16 @@ class SlskdDownloader(DownloaderBase):
         username, _, filename = result.provider_track_id.partition("/")
         size = result.size
         with httpx.Client(timeout=30) as c:
-            r = c.post(f"{self.base}/api/v0/transfers/downloads/{quote(username, safe='')}",
-                       json=[{"filename": filename, "size": size}],
-                       headers=self._headers())
+            r = self._call(c, "post",
+                           f"{self.base}/api/v0/transfers/downloads/{quote(username, safe='')}",
+                           json=[{"filename": filename, "size": size}])
             if r.status_code == 400:
                 raise RuntimeError(f"slskd rejected download: {r.text[:200]}")
             self._check(r)
             deadline = time.time() + timeout_s
             base_name = filename.replace("\\", "/").split("/")[-1].lower()
             while time.time() < deadline:
-                d = c.get(f"{self.base}/api/v0/transfers/downloads",
-                          headers=self._headers())
+                d = self._call(c, "get", f"{self.base}/api/v0/transfers/downloads")
                 self._check(d)
                 found = self._walk_downloads(d.json(), base_name)
                 state = (found or {}).get("state", "").lower()
