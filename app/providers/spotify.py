@@ -146,13 +146,18 @@ class SpotifyProvider(PlaylistProvider):
         pid = extract_playlist_id(url)
         if not pid:
             raise ValueError(f"Not a Spotify playlist URL: {url}")
-        if _get_api_token():
-            try:
-                return _fetch_via_api(pid)
-            except Exception as e:
-                # e.g. 403 when the app owner's account has no Premium
-                logging.getLogger("yakcheesemusic").warning(
-                    "Spotify API failed (%s), trying web harvest", e)
+        try:
+            if _get_api_token():
+                try:
+                    return _fetch_via_api(pid)
+                except Exception as e:
+                    # e.g. 403 when the app owner's account has no Premium
+                    logging.getLogger("yakcheesemusic").warning(
+                        "Spotify API failed (%s), trying web harvest", e)
+        except Exception as e:
+            # e.g. 400 from /api/token on bad credentials — degrade, don't die
+            logging.getLogger("yakcheesemusic").warning(
+                "Spotify API unavailable (%s), trying web harvest", e)
         try:
             return SpotifyWebProvider().get_playlist(url)
         except Exception as e:

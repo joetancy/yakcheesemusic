@@ -12,8 +12,8 @@ services:
       LOG_LEVEL: INFO
       SLSKD_URL: http://slskd:5030
       SLSKD_API_KEY: ${SLSKD_API_KEY:-change-me}
-      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-change-me}
-      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-change-me}
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
     volumes:
       - ./data:/app/data
       - /srv/media/data/media/music:/music

@@ -104,3 +104,36 @@ def test_scan_reconcile(monkeypatch):
     assert r3["added"] == 0 and r3["removed"] == 1
     remaining = db.query(PlaylistTrack).filter_by(active=True).all()
     assert len(remaining) == 1 and remaining[0].provider_track_id == "BBB"
+
+
+def _sentinel_playlist(name="WebHarvest"):
+    return ProviderPlaylist(provider="spotify", provider_playlist_id="abc123",
+                            name=name, url="", track_count=1, tracks=[
+        ProviderTrack(provider_track_id="AAA", title="OMG",
+                      artist="NewJeans", position=0),
+    ])
+
+
+def test_bad_api_credentials_fall_through_to_web(monkeypatch):
+    import app.providers.spotify as spotify
+    from app.providers.spotify_web import SpotifyWebProvider
+    monkeypatch.setattr(spotify, "_get_api_token",
+                        lambda: (_ for _ in ()).throw(RuntimeError("400 Bad Request")))
+    monkeypatch.setattr(SpotifyWebProvider, "get_playlist",
+                        lambda self, url: _sentinel_playlist())
+    pl = spotify.SpotifyProvider().get_playlist(
+        "https://open.spotify.com/playlist/abc123")
+    assert pl.name == "WebHarvest" and len(pl.tracks) == 1
+
+
+def test_web_failure_falls_through_to_embed(monkeypatch):
+    import app.providers.spotify as spotify
+    from app.providers.spotify_web import SpotifyWebProvider
+    monkeypatch.setattr(spotify, "_get_api_token", lambda: None)
+    monkeypatch.setattr(SpotifyWebProvider, "get_playlist",
+                        lambda self, url: (_ for _ in ()).throw(RuntimeError("no browser")))
+    monkeypatch.setattr(spotify, "_fetch_via_embed",
+                        lambda pid: _sentinel_playlist("Embed"))
+    pl = spotify.SpotifyProvider().get_playlist(
+        "https://open.spotify.com/playlist/abc123")
+    assert pl.name == "Embed"

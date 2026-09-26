@@ -82,6 +82,16 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
                     log.info("transcoded track=%s -> %s", track_id, final)
             except Exception as e:
                 log.warning("transcode failed for %s: %s", final, e)
+            try:  # stamp playlist-derived tags on the FINAL file (post-transcode)
+                from app.metadata.tagging import write_tags
+                if not write_tags(str(final), {
+                        "title": t.title, "artist": t.artist,
+                        "albumartist": t.artist, "album": t.album,
+                        "tracknumber": t.track_number, "date": t.year,
+                        "isrc": t.isrc}):
+                    log.warning("retag skipped for %s", final)
+            except Exception as e:
+                log.warning("retag failed for %s: %s", final, e)
             try:  # probe the FINAL file (post-transcode)
                 from app.audio.probe import probe_audio
                 for k, v in probe_audio(str(final)).items():
