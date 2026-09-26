@@ -48,9 +48,8 @@ async function saveFormat(){
 }
 async function convertExisting(){
   if(!confirm('Convert all existing lossless files to 320kbps MP3? Originals are deleted after each verified convert.')) return;
-  document.getElementById('format-result').textContent = 'converting…';
   const r = await fetch('/api/library/convert', {method:'POST'});
-  document.getElementById('format-result').textContent = JSON.stringify(await r.json());
+  trackJob(await r.json(), 'format-result');
 }
 </script>
 {% endblock %}

@@ -45,10 +45,8 @@ async function scanPlaylist(id){
 }
 async function syncPlaylist(id){
   if(!confirm('Sync this playlist? Missing tracks with confident matches will download automatically.')) return;
-  document.getElementById('scan-result').textContent='sync started…';
   const r=await fetch('/api/playlists/'+id+'/sync',{method:'POST'});
-  const j=await r.json();
-  document.getElementById('scan-result').textContent=JSON.stringify(j);
+  trackJob(await r.json(), 'scan-result');
 }
 async function genM3u(id){
   document.getElementById('scan-result').textContent='generating…';
