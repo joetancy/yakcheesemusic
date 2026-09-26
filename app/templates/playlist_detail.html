@@ -13,7 +13,7 @@
 <p class="muted">Auto-sync: {{ playlist.sync_interval }}{% if not playlist.sync_enabled %} (paused){% elif playlist.next_sync_at %} · next: {{ playlist.next_sync_at }}{% endif %}</p>
 <p>Playlist file: {% if m3u_path %}<span class="muted">{{ m3u_path }}</span>{% else %}<span class="muted">none yet</span>{% endif %}
 <button onclick="genM3u({{ playlist.id }})">Generate .m3u</button></p>
-<table class="rtable"><tr><th>#</th><th>Title</th><th>Artist</th><th>Album</th><th>Status</th><th>Source</th><th>File</th><th>Type</th><th>Quality</th></tr>
+<table class="rtable"><tr><th>#</th><th>Title</th><th>Artist</th><th>Album</th><th>Status</th><th>Source</th><th>File</th><th>Type</th><th>Quality</th><th></th></tr>
 {% for m in memberships %}<tr>
 <td data-label="#">{{ m.position + 1 }}</td>
 <td data-label="Title">{{ m.source_title }}</td>
@@ -24,9 +24,18 @@
 <td data-label="File">{% if m.track and m.track.local_path %}<span title="{{ m.track.local_path }}">{{ m.track.local_path }}</span>{% else %}—{% endif %}</td>
 <td data-label="Type">{{ m.track.format.upper() if m.track and m.track.format else "—" }}</td>
 <td data-label="Quality">{{ m.track.quality_label if m.track and m.track.quality_label else "—" }}</td>
-</tr>{% else %}<tr><td colspan="9">No tracks yet — hit Scan now.</td></tr>{% endfor %}
+<td>{% if m.track %}<button onclick="research({{ m.track.id }}, this)">Search again</button>{% endif %}</td>
+</tr>{% else %}<tr><td colspan="10">No tracks yet — hit Scan now.</td></tr>{% endfor %}
 </table>
 <script>
+async function research(id, btn){
+  btn.disabled = true;
+  const r = await fetch('/api/tracks/'+id+'/search', {method:'POST'});
+  const j = await r.json().catch(()=>({}));
+  document.getElementById('scan-result').textContent = JSON.stringify(j);
+  btn.disabled = false;
+  if(r.ok) setTimeout(()=>location.reload(), 1200);
+}
 async function scanPlaylist(id){
   document.getElementById('scan-result').textContent='scanning…';
   const r=await fetch('/api/playlists/'+id+'/scan',{method:'POST'});

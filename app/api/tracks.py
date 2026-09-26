@@ -109,7 +109,7 @@ def download_track(track_id: int, payload: dict | None = None, db: Session = Dep
     return {"ok": True, "status": "downloading", "candidate_id": cand.id}
 
 
-RETRYABLE_STATUSES = ("needs_review", "failed", "skipped")
+RETRYABLE_STATUSES = ("needs_review", "failed", "skipped", "completed")
 
 
 @router.post("/{track_id}/retry")

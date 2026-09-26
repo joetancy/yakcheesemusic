@@ -82,4 +82,7 @@ def test_retry_single_track(seeded_client):
     assert r.json() == {"ok": True, "status": "pending"}
     assert seeded_client.post("/api/tracks/9999/retry").status_code == 404
     cid = seeded_client.get("/api/tracks", params={"status": "completed"}).json()[0]["id"]
+    r = seeded_client.post(f"/api/tracks/{cid}/retry")
+    assert r.status_code == 200  # completed tracks can opt back into search
+    assert r.json() == {"ok": True, "status": "pending"}
     assert seeded_client.post(f"/api/tracks/{cid}/retry").status_code == 409

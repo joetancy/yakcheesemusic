@@ -57,6 +57,27 @@ def make_readable(path: str) -> None:
             "chmod failed for %s: %s", path, e)
 
 
+def replace_previous_file(old: str | None, new: str, music_dir: str) -> bool:
+    """Remove the superseded file after a successful re-download.
+    Returns True when something was removed."""
+    import logging
+    import os
+    from app.sync.prune import prune_empty_parents
+    if not old or old == new or not os.path.exists(old):
+        return False
+    try:
+        os.remove(old)
+    except OSError as e:
+        logging.getLogger("yakcheesemusic").warning(
+            "could not remove superseded %s: %s", old, e)
+        return False
+    try:
+        prune_empty_parents(old, music_dir)
+    except Exception:
+        pass
+    return True
+
+
 def playlist_usage(db, playlist_id: int) -> tuple[int, int]:
     """(bytes_on_disk, files_with_local_path) for active memberships."""
     import os

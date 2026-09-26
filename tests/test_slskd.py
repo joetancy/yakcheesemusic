@@ -234,6 +234,20 @@ def test_make_readable(tmp_path):
     make_readable(str(tmp_path / "missing.mp3"))  # never raises
 
 
+def test_replace_previous_file(tmp_path):
+    from app.sync.library import replace_previous_file
+    old = tmp_path / "old.mp3"
+    new = tmp_path / "new.mp3"
+    old.write_bytes(b"o" * 512)
+    new.write_bytes(b"n" * 512)
+    assert replace_previous_file(str(old), str(new), str(tmp_path)) is True
+    assert not old.exists() and new.exists()
+    assert replace_previous_file(str(new), str(new), str(tmp_path)) is False
+    assert replace_previous_file(None, str(new), str(tmp_path)) is False
+    assert replace_previous_file(str(tmp_path / "gone.mp3"), str(new),
+                                  str(tmp_path)) is False
+
+
 def _dedup_db(files):
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker

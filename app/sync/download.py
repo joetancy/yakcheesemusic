@@ -18,6 +18,7 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
     db = SessionLocal()
     try:
         t = db.get(Track, track_id)
+        previous_path = t.local_path if t else None
         last_err: Exception | None = None
         for candidate_id in candidate_ids:
             cand = db.get(DownloadCandidate, candidate_id)
@@ -106,6 +107,8 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
                     log.warning("replaygain failed for %s", final)
             except Exception as e:
                 log.warning("replaygain error for %s: %s", final, e)
+            from app.sync.library import replace_previous_file as _replace
+            _replace(previous_path, str(final), music_dir)
             t.status = "completed"
             for c in db.query(DownloadCandidate).filter(
                     DownloadCandidate.track_id == track_id).all():
