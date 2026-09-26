@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Review {{ track.title }} - music-sync{% endblock %}
+{% block content %}
+<h1>{{ track.title }} — {{ track.artist }}</h1>
+<p class="muted">Album: {{ track.album or "—" }} · Status: <b>{{ track.status }}</b></p>
+<p class="muted">{{ reason }}</p>
+<p>
+<button onclick="act('search')">Search again</button>
+{% if track.status == 'skipped' %}
+<button onclick="act('unskip')">Unskip (retry in sync)</button>
+{% else %}
+<button onclick="act('skip')">Skip (ignore in sync)</button>
+{% endif %}
+<span id="result" class="muted"></span>
+</p>
+<h2>Candidates (top 10 of {{ total_candidates }})</h2>
+<table class="rtable"><tr><th>Score</th><th>Verdict</th><th>Quality</th><th>Title</th><th>Artist</th><th>Source file</th><th></th></tr>
+{% for c in candidates %}<tr{% if c.rejected %} style="opacity:.45"{% endif %}>
+<td data-label="Score">{{ "%.1f"|format(c.score or 0) }}</td><td data-label="Verdict">{{ c.verdict or "—" }}</td>
+<td data-label="Quality">{{ c.quality or "—" }}</td><td data-label="Title">{{ c.title }}</td><td data-label="Artist">{{ c.artist }}</td>
+<td data-label="Source file"><span title="{{ c.source }}">{{ (c.source or "")[-70:] }}</span></td>
+<td>{% if c.rejected %}<i>rejected</i> <button onclick="unreject({{ c.id }})">undo</button>
+{% else %}<button onclick="useCand({{ c.id }})">Use this</button> <button onclick="reject({{ c.id }})">Reject</button>{% endif %}</td>
+</tr>{% else %}<tr><td colspan="7">No candidates yet — hit Search again.</td></tr>{% endfor %}
+</table>
+<script>
+const TID = {{ track.id }};
+async function post(url, body){
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: body?JSON.stringify(body):null});
+  const j = await r.json().catch(()=>({}));
+  document.getElementById('result').textContent = JSON.stringify(j);
+  if(r.ok) setTimeout(()=>location.reload(), 800);
+}
+function act(a){ post('/api/tracks/'+TID+'/'+a); }
+function useCand(id){ if(confirm('Download this candidate?')) post('/api/tracks/'+TID+'/download', {candidate_id:id}); }
+function reject(id){ post('/api/tracks/'+TID+'/reject', {candidate_id:id}); }
+function unreject(id){ post('/api/tracks/'+TID+'/unreject', {candidate_id:id}); }
+</script>
+{% endblock %}

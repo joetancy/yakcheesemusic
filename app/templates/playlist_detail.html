@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ playlist.name }} - music-sync{% endblock %}
+{% block content %}
+<h1>{{ playlist.name }}</h1>
+<p class="muted">{{ playlist.provider }} · <a href="{{ playlist.url }}">{{ playlist.url }}</a></p>
+<p>
+<button onclick="scanPlaylist({{ playlist.id }})">Scan now</button>
+<button onclick="syncPlaylist({{ playlist.id }})">Sync now</button>
+<button onclick="deletePlaylist({{ playlist.id }})">Delete</button>
+<span id="scan-result" class="muted"></span>
+</p>
+<p class="muted">Last scan: {{ playlist.last_scan_at or "never" }} · Last sync: {{ playlist.last_sync_at or "never" }} · Size: {{ total_size }} in {{ total_files }} files</p>
+<p>Playlist file: {% if m3u_path %}<span class="muted">{{ m3u_path }}</span>{% else %}<span class="muted">none yet</span>{% endif %}
+<button onclick="genM3u({{ playlist.id }})">Generate .m3u</button></p>
+<table class="rtable"><tr><th>#</th><th>Title</th><th>Artist</th><th>Album</th><th>Status</th><th>Source</th><th>File</th><th>Type</th><th>Quality</th></tr>
+{% for m in memberships %}<tr>
+<td data-label="#">{{ m.position + 1 }}</td>
+<td data-label="Title">{{ m.source_title }}</td>
+<td data-label="Artist">{{ m.source_artist }}</td>
+<td data-label="Album">{{ (m.track.album if m.track and m.track.album else m.source_album) or "—" }}</td>
+<td data-label="Status">{{ m.track.status if m.track else "?" }}</td>
+<td data-label="Source">{{ m.track.download_provider if m.track and m.track.download_provider else "—" }}</td>
+<td data-label="File">{% if m.track and m.track.local_path %}<span title="{{ m.track.local_path }}">{{ m.track.local_path }}</span>{% else %}—{% endif %}</td>
+<td data-label="Type">{{ m.track.format.upper() if m.track and m.track.format else "—" }}</td>
+<td data-label="Quality">{{ m.track.quality_label if m.track and m.track.quality_label else "—" }}</td>
+</tr>{% else %}<tr><td colspan="9">No tracks yet — hit Scan now.</td></tr>{% endfor %}
+</table>
+<script>
+async function scanPlaylist(id){
+  document.getElementById('scan-result').textContent='scanning…';
+  const r=await fetch('/api/playlists/'+id+'/scan',{method:'POST'});
+  const j=await r.json();
+  document.getElementById('scan-result').textContent=JSON.stringify(j);
+  if(r.ok) location.reload();
+}
+async function syncPlaylist(id){
+  if(!confirm('Sync this playlist? Missing tracks with confident matches will download automatically.')) return;
+  document.getElementById('scan-result').textContent='sync started…';
+  const r=await fetch('/api/playlists/'+id+'/sync',{method:'POST'});
+  const j=await r.json();
+  document.getElementById('scan-result').textContent=JSON.stringify(j);
+}
+async function genM3u(id){
+  document.getElementById('scan-result').textContent='generating…';
+  const r=await fetch('/api/playlists/'+id+'/m3u',{method:'POST'});
+  const j=await r.json();
+  document.getElementById('scan-result').textContent=JSON.stringify(j);
+  if(r.ok) location.reload();
+}
+async function deletePlaylist(id){
+  if(!confirm('Delete this playlist?')) return;
+  const withFiles = confirm('Also delete its downloaded files from disk?\n\nOK = delete files too (files used by other playlists are kept)\nCancel = keep files');
+  const r=await fetch('/api/playlists/'+id+(withFiles?'?delete_files=true':''),{method:'DELETE'});
+  const j=await r.json();
+  if(r.ok) location.href='/playlists';
+  else alert('Delete failed: '+JSON.stringify(j));
+}
+</script>
+{% endblock %}

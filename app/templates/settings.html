@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Settings - music-sync{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+<h2>Match confidence</h2>
+<p class="muted">Global gates applied to every search. Score ≥ auto → download.
+Score ≥ conditional → download unless a close rival exists.
+Score ≥ review → needs review, else rejected.</p>
+<form onsubmit="return saveSettings(event)">
+<label>Auto-download at or above<br><input id="match_auto" type="number" min="0" max="100" step="1" value="{{ match_auto }}"></label><br><br>
+<label>Conditional band at or above<br><input id="match_conditional" type="number" min="0" max="100" step="1" value="{{ match_conditional }}"></label><br><br>
+<label>Review at or above<br><input id="match_review" type="number" min="0" max="100" step="1" value="{{ match_review }}"></label><br><br>
+<button type="submit">Save</button> <span id="settings-result" class="muted"></span>
+</form>
+<h2>Download format</h2>
+<p class="muted">Original keeps source files as-is. MP3 transcodes lossless downloads to 320kbps (source deleted after a verified convert). Applies to new downloads; use the button below for existing files.</p>
+<p><select id="preferred_format">
+<option value="original" {% if preferred_format == "original" %}selected{% endif %}>Original (keep FLAC etc.)</option>
+<option value="mp3" {% if preferred_format == "mp3" %}selected{% endif %}>MP3 320kbps</option>
+</select>
+<button onclick="saveFormat()">Save format</button>
+<button onclick="convertExisting()">Convert existing FLACs to MP3</button>
+<span id="format-result" class="muted"></span></p>
+<h2>Installation</h2>
+<table class="rtable">
+<tr><td data-label="Music dir">{{ music_dir }}</td></tr>
+<tr><td data-label="ReplayGain target">{{ replaygain_target }} LUFS</td></tr>
+<tr><td data-label="Removed-track policy">{{ removed_policy }}</td></tr>
+<tr><td data-label="Timezone">{{ tz }}</td></tr>
+</table>
+<p class="muted">Installation values come from container environment.</p>
+<script>
+async function saveSettings(e){
+  e.preventDefault();
+  const body = {
+    match_auto: parseFloat(document.getElementById('match_auto').value),
+    match_conditional: parseFloat(document.getElementById('match_conditional').value),
+    match_review: parseFloat(document.getElementById('match_review').value),
+  };
+  const r = await fetch('/api/settings', {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  document.getElementById('settings-result').textContent = JSON.stringify(await r.json());
+  return false;
+}
+async function saveFormat(){
+  const v = document.getElementById('preferred_format').value;
+  const r = await fetch('/api/settings', {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({preferred_format:v})});
+  document.getElementById('format-result').textContent = JSON.stringify(await r.json());
+}
+async function convertExisting(){
+  if(!confirm('Convert all existing lossless files to 320kbps MP3? Originals are deleted after each verified convert.')) return;
+  document.getElementById('format-result').textContent = 'converting…';
+  const r = await fetch('/api/library/convert', {method:'POST'});
+  document.getElementById('format-result').textContent = JSON.stringify(await r.json());
+}
+</script>
+{% endblock %}

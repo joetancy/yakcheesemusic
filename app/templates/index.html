@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - music-sync{% endblock %}
+{% block content %}
+<h1>Dashboard <span class="muted" id="live-dot">● live</span></h1>
+<div class="cards">
+<div class="card"><div class="num" id="s-playlists">{{ n_playlists }}</div><div>Playlists</div></div>
+<div class="card"><div class="num" id="s-tracks">{{ n_tracks }}</div><div>Tracks</div></div>
+<div class="card"><div class="num" id="s-completed">{{ by_status.get("completed", 0) }}</div><div>Downloaded</div></div>
+<div class="card"><div class="num" id="s-downloading">{{ by_status.get("downloading", 0) }}</div><div>Downloading</div></div>
+<div class="card"><div class="num" id="s-searching">{{ by_status.get("searching", 0) }}</div><div>Searching</div></div>
+<div class="card"><div class="num" id="s-review">{{ n_review }}</div><div>Needs review</div></div>
+<div class="card"><div class="num" id="s-failed">{{ n_failed }}</div><div>Failed</div></div>
+<div class="card"><div class="num" id="s-pending">{{ by_status.get("pending", 0) }}</div><div>Pending</div></div>
+</div>
+
+<h2>Activity</h2>
+<div class="cols">
+<div><h3>Searching</h3><ul id="searching-list"></ul></div>
+<div><h3>Downloading</h3><ul id="dl-list"></ul></div>
+</div>
+
+<h2>Playlists</h2>
+<table id="progress-table" class="rtable"><tr><th>Name</th><th>Progress</th><th>Last sync</th></tr>
+{% for p in progress %}<tr><td data-label="Name"><a href="/playlists/{{ p.id }}">{{ p.name }}</a></td>
+<td data-label="Progress"><div class="bar"><div class="fill" style="width:{{ (100*p.done//p.total) if p.total else 0 }}%"></div></div> {{ p.done }}/{{ p.total }}</td>
+<td data-label="Last sync">{{ p.last_sync_at or "never" }}</td></tr>{% endfor %}
+</table>
+
+<h2>Recent results</h2>
+<table id="recent-table" class="rtable"><tr><th>Track</th><th>Status</th><th>Quality</th></tr>
+{% for t in recent %}<tr><td data-label="Track">{{ t.title }} — {{ t.artist }}</td><td data-label="Status">{{ t.status }}</td><td data-label="Quality">{{ t.quality or "—" }}</td></tr>{% endfor %}
+</table>
+
+<h2>Library</h2>
+<p><button onclick="rgSweep()">Apply ReplayGain −14 LUFS to all files</button>
+<span id="rg-result" class="muted"></span></p>
+
+<h2>Sync jobs</h2>
+<table id="jobs-table" class="rtable"><tr><th>Job</th><th>Playlist</th><th>Status</th><th>Seen</th><th>Downloaded</th><th>Failed</th></tr>
+{% for j in jobs %}<tr><td data-label="Job">{{ j.id }}</td><td data-label="Playlist">{{ j.playlist_id }}</td><td data-label="Status">{{ j.status }}</td><td data-label="Seen">{{ j.seen }}</td><td data-label="Downloaded">{{ j.downloaded }}</td><td data-label="Failed">{{ j.failed }}</td></tr>{% endfor %}
+</table>
+
+<p class="muted">Music dir: {{ music_dir }}</p>
+<script>
+function esc(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function rgSweep(){
+  if(!confirm('Tag the whole library with ReplayGain at −14 LUFS? Already-tagged files are skipped.')) return;
+  document.getElementById('rg-result').textContent='sweep started…';
+  const r=await fetch('/api/replaygain',{method:'POST'});
+  document.getElementById('rg-result').textContent=JSON.stringify(await r.json());
+}
+function set(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
+function tlist(items){
+  if(!items.length) return '<li class="muted">idle</li>';
+  return items.map(t=>`<li>${esc(t.title)} — ${esc(t.artist)}${t.provider?` <span class="muted">via ${esc(t.provider)}</span>`:''}</li>`).join('');
+}
+async function refresh(){
+  try{
+    const j = await (await fetch('/api/stats')).json();
+    const b = j.by_status || {};
+    set('s-playlists', j.playlists); set('s-tracks', j.tracks);
+    set('s-completed', b.completed||0); set('s-downloading', b.downloading||0);
+    set('s-searching', b.searching||0); set('s-review', b.needs_review||0);
+    set('s-failed', b.failed||0); set('s-pending', b.pending||0);
+    document.getElementById('dl-list').innerHTML = tlist(j.downloading||[]);
+    document.getElementById('searching-list').innerHTML = tlist(j.searching||[]);
+    document.getElementById('progress-table').innerHTML =
+      '<tr><th>Name</th><th>Progress</th><th>Last sync</th></tr>' + (j.progress||[]).map(p=>{
+        const pct = p.total ? Math.floor(100*p.done/p.total) : 0;
+        return `<tr><td data-label="Name"><a href="/playlists/${p.id}">${esc(p.name)}</a></td><td data-label="Progress"><div class="bar"><div class="fill" style="width:${pct}%"></div></div> ${p.done}/${p.total}</td><td data-label="Last sync">${esc(p.last_sync_at||'never')}</td></tr>`;
+      }).join('');
+    document.getElementById('recent-table').innerHTML =
+      '<tr><th>Track</th><th>Status</th><th>Quality</th></tr>' + (j.recent||[]).map(t=>
+        `<tr><td data-label="Track">${esc(t.title)} — ${esc(t.artist)}</td><td data-label="Status">${esc(t.status)}</td><td data-label="Quality">${esc(t.quality||'—')}</td></tr>`).join('');
+    document.getElementById('jobs-table').innerHTML =
+      '<tr><th>Job</th><th>Playlist</th><th>Status</th><th>Seen</th><th>Downloaded</th><th>Failed</th></tr>' + (j.jobs||[]).map(x=>
+        `<tr><td data-label="Job">${x.id}</td><td data-label="Playlist">${x.playlist_id}</td><td data-label="Status">${esc(x.status)}</td><td data-label="Seen">${x.seen}</td><td data-label="Downloaded">${x.downloaded}</td><td data-label="Failed">${x.failed}</td></tr>`).join('');
+    document.getElementById('live-dot').textContent = '● live';
+  }catch(e){ document.getElementById('live-dot').textContent = '● offline'; }
+}
+async function first(){ await refresh();
+  document.getElementById('dl-list').innerHTML = tlist({{ downloading|tojson }});
+  document.getElementById('searching-list').innerHTML = tlist({{ searching|tojson }});
+}
+first(); setInterval(refresh, 5000);
+</script>
+{% endblock %}

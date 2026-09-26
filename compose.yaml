@@ -1,0 +1,38 @@
+services:
+  music-sync:
+    build: .
+    container_name: music-sync
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      DATABASE_URL: sqlite:////app/data/music-sync.db
+      MUSIC_DIR: /music
+      TZ: Asia/Singapore
+      LOG_LEVEL: INFO
+      SLSKD_URL: http://slskd:5030
+      SLSKD_API_KEY: ${SLSKD_API_KEY:-change-me}
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-change-me}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-change-me}
+    volumes:
+      - ./data:/app/data
+      - /srv/media/data/media/music:/music
+      - slskd-downloads:/downloads
+
+  slskd:
+    image: slskd/slskd:latest
+    container_name: slskd
+    restart: unless-stopped
+    ports:
+      - "5030:5030"   # web UI (debugging)
+      - "50300:50300" # soulseek listen port (better results when reachable)
+    volumes:
+      - ./slskd/slskd.yml:/app/slskd.yml:ro
+      - slskd-app:/app
+      - slskd-downloads:/downloads/complete
+      - slskd-downloads:/downloads/incomplete
+      - /srv/media/data/media/music:/music:ro
+
+volumes:
+  slskd-downloads:
+  slskd-app:
