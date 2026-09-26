@@ -24,3 +24,62 @@ def test_delete_playlist_cleans_orphans(client):
     assert r.status_code == 200
     assert r.json() == {"ok": True, "deleted_files": 0, "kept_files": 0}
     assert client.get(f"/api/playlists/{pid}").status_code == 404
+
+
+import pytest as _pytest
+from fastapi.testclient import TestClient as _TestClient
+from sqlalchemy import create_engine as _create_engine
+from sqlalchemy.orm import sessionmaker as _sessionmaker
+from sqlalchemy.pool import StaticPool as _StaticPool
+
+from app.db.database import Base as _Base, get_db as _get_db
+from app.db.models import Track as _Track
+from app.main import app as _app
+
+
+@_pytest.fixture
+def seeded_client():
+    engine = _create_engine("sqlite://", connect_args={"check_same_thread": False},
+                            poolclass=_StaticPool)
+    _Base.metadata.create_all(bind=engine)
+    TestingSession = _sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+    db = TestingSession()
+    db.add_all([
+        _Track(title="A", artist="X", status="needs_review"),
+        _Track(title="B", artist="Y", status="failed"),
+        _Track(title="C", artist="Z", status="completed"),
+        _Track(title="D", artist="W", status="skipped"),
+    ])
+    db.commit()
+    db.close()
+
+    def override():
+        s = TestingSession()
+        try:
+            yield s
+        finally:
+            s.close()
+
+    _app.dependency_overrides[_get_db] = override
+    with _TestClient(_app) as c:
+        yield c
+    _app.dependency_overrides.clear()
+
+
+def test_retry_all_resets_review_and_failed(seeded_client):
+    r = seeded_client.post("/api/tracks/retry-all")
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "reset": 2}
+    assert len(seeded_client.get("/api/tracks", params={"status": "pending"}).json()) == 2
+    assert seeded_client.get("/api/tracks", params={"status": "completed"}).json()[0]["title"] == "C"
+    assert seeded_client.get("/api/tracks", params={"status": "skipped"}).json()[0]["title"] == "D"
+
+
+def test_retry_single_track(seeded_client):
+    tid = seeded_client.get("/api/tracks", params={"status": "failed"}).json()[0]["id"]
+    r = seeded_client.post(f"/api/tracks/{tid}/retry")
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "status": "pending"}
+    assert seeded_client.post("/api/tracks/9999/retry").status_code == 404
+    cid = seeded_client.get("/api/tracks", params={"status": "completed"}).json()[0]["id"]
+    assert seeded_client.post(f"/api/tracks/{cid}/retry").status_code == 409

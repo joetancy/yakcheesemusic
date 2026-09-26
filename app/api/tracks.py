@@ -109,9 +109,34 @@ def download_track(track_id: int, payload: dict | None = None, db: Session = Dep
     return {"ok": True, "status": "downloading", "candidate_id": cand.id}
 
 
+RETRYABLE_STATUSES = ("needs_review", "failed", "skipped")
+
+
 @router.post("/{track_id}/retry")
-def retry_track(track_id: int):
-    return {"ok": False, "detail": "Retry not implemented yet (Phase 11)"}
+def retry_track(track_id: int, db: Session = Depends(get_db)):
+    from fastapi import HTTPException
+    t = db.get(Track, track_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Not found")
+    if t.status not in RETRYABLE_STATUSES:
+        raise HTTPException(status_code=409,
+                            detail=f"Track is {t.status}, nothing to retry")
+    t.status = "pending"
+    db.commit()
+    return {"ok": True, "status": "pending"}
+
+
+@router.post("/retry-all")
+def retry_all(payload: dict | None = None, db: Session = Depends(get_db)):
+    from sqlalchemy import update
+    statuses = (payload or {}).get("statuses") or ["needs_review", "failed"]
+    statuses = [s for s in statuses if s in RETRYABLE_STATUSES]
+    if not statuses:
+        return {"ok": True, "reset": 0}
+    n = db.execute(update(Track).where(Track.status.in_(statuses))
+                   .values(status="pending")).rowcount
+    db.commit()
+    return {"ok": True, "reset": n}
 
 
 @router.post("/{track_id}/reject")

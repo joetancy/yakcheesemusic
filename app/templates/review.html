@@ -2,7 +2,17 @@
 {% block title %}Review - yakcheesemusic{% endblock %}
 {% block content %}
 <h1>Needs review / Failed / Skipped</h1>
+<p><button onclick="retryAll()">Retry all (clear review &amp; failed)</button> <span id="result" class="muted"></span></p>
 <table class="rtable"><tr><th>Title</th><th>Artist</th><th>Status</th><th></th></tr>
 {% for t in tracks %}<tr><td data-label="Title">{{ t.title }}</td><td data-label="Artist">{{ t.artist }}</td><td data-label="Status">{{ t.status }}</td><td><a href="/review/{{ t.id }}">Review</a></td></tr>{% else %}<tr><td colspan="4">Nothing to review.</td></tr>{% endfor %}
 </table>
+<script>
+async function retryAll(){
+  if(!confirm('Reset all needs_review + failed tracks to pending?')) return;
+  const r = await fetch('/api/tracks/retry-all', {method:'POST'});
+  const j = await r.json().catch(()=>({}));
+  document.getElementById('result').textContent = JSON.stringify(j);
+  if(r.ok) setTimeout(()=>location.reload(), 800);
+}
+</script>
 {% endblock %}

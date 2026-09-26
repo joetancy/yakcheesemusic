@@ -1,6 +1,10 @@
-body{font-family:system-ui,sans-serif;max-width:960px;margin:0 auto;padding:1rem;color:#222}
-header nav{line-height:2}header nav a{margin-right:.5rem}.muted{color:#777}.cards{display:flex;gap:1rem;flex-wrap:wrap}.card{border:1px solid #ddd;padding:1rem;border-radius:8px;min-width:120px;text-align:center;flex:1}.num{font-size:1.8rem;font-weight:700}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:.4rem .6rem;text-align:left}
-.cols{display:flex;gap:2rem}.cols>div{flex:1;min-width:0}.bar{background:#eee;border-radius:4px;height:10px;width:120px;max-width:100%;display:inline-block;vertical-align:middle}.fill{background:#4a8;height:100%;border-radius:4px}#live-dot{font-size:.8rem;color:#4a8}
+:root{color-scheme:light dark;--bg:#fff;--fg:#222;--muted:#777;--border:#ddd;--bar:#eee;--accent:#4a8;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#16181d;--fg:#e2e2e2;--muted:#9a9a9a;--border:#333a42;--bar:#2a2e35;--accent:#6cc79a;--card:#1d2026}}
+:root[data-theme="light"]{color-scheme:light;--bg:#fff;--fg:#222;--muted:#777;--border:#ddd;--bar:#eee;--accent:#4a8;--card:#fff}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#16181d;--fg:#e2e2e2;--muted:#9a9a9a;--border:#333a42;--bar:#2a2e35;--accent:#6cc79a;--card:#1d2026}
+body{font-family:system-ui,sans-serif;max-width:960px;margin:0 auto;padding:1rem;color:var(--fg);background:var(--bg)}
+header nav{line-height:2}header nav a{margin-right:.5rem}.muted{color:var(--muted)}.cards{display:flex;gap:1rem;flex-wrap:wrap}.card{border:1px solid var(--border);background:var(--card);padding:1rem;border-radius:8px;min-width:120px;text-align:center;flex:1}.num{font-size:1.8rem;font-weight:700}table{border-collapse:collapse;width:100%}td,th{border:1px solid var(--border);padding:.4rem .6rem;text-align:left}
+.cols{display:flex;gap:2rem}.cols>div{flex:1;min-width:0}.bar{background:var(--bar);border-radius:4px;height:10px;width:120px;max-width:100%;display:inline-block;vertical-align:middle}.fill{background:var(--accent);height:100%;border-radius:4px}#live-dot{font-size:.8rem;color:var(--accent)}
 button{padding:.55rem .9rem;font-size:1rem;min-height:44px}
 input{font-size:1rem;padding:.5rem;max-width:100%;box-sizing:border-box}
 @media (max-width:640px){
@@ -15,9 +19,9 @@ input{font-size:1rem;padding:.5rem;max-width:100%;box-sizing:border-box}
   /* stacked cards for wide tables: label left, value right */
   table.rtable, table.rtable tbody, table.rtable tr, table.rtable td{display:block;width:100%;box-sizing:border-box}
   table.rtable thead{display:none}
-  table.rtable tr{border:1px solid #ddd;border-radius:8px;margin-bottom:.6rem;padding:.4rem .2rem}
+  table.rtable tr{border:1px solid var(--border);border-radius:8px;margin-bottom:.6rem;padding:.4rem .2rem}
   table.rtable td{display:flex;gap:.75rem;align-items:flex-start;border:none;padding:.2rem .6rem;white-space:normal;word-break:break-word}
-  table.rtable td::before{content:attr(data-label);flex:0 0 5.5rem;font-size:.72rem;color:#777;text-transform:uppercase;padding-top:.2rem}
+  table.rtable td::before{content:attr(data-label);flex:0 0 5.5rem;font-size:.72rem;color:var(--muted);text-transform:uppercase;padding-top:.2rem}
   table.rtable td:not([data-label])::before{display:none}
   table.rtable td:empty{display:none}
 }

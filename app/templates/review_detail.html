@@ -6,6 +6,7 @@
 <p class="muted">{{ reason }}</p>
 <p>
 <button onclick="act('search')">Search again</button>
+<button onclick="act('retry')">Retry (reset to pending)</button>
 {% if track.status == 'skipped' %}
 <button onclick="act('unskip')">Unskip (retry in sync)</button>
 {% else %}
