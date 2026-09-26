@@ -10,6 +10,7 @@
 <span id="scan-result" class="muted"></span>
 </p>
 <p class="muted">Last scan: {{ playlist.last_scan_at or "never" }} · Last sync: {{ playlist.last_sync_at or "never" }} · Size: {{ total_size }} in {{ total_files }} files</p>
+<p class="muted">Auto-sync: {{ playlist.sync_interval }}{% if not playlist.sync_enabled %} (paused){% elif playlist.next_sync_at %} · next: {{ playlist.next_sync_at }}{% endif %}</p>
 <p>Playlist file: {% if m3u_path %}<span class="muted">{{ m3u_path }}</span>{% else %}<span class="muted">none yet</span>{% endif %}
 <button onclick="genM3u({{ playlist.id }})">Generate .m3u</button></p>
 <table class="rtable"><tr><th>#</th><th>Title</th><th>Artist</th><th>Album</th><th>Status</th><th>Source</th><th>File</th><th>Type</th><th>Quality</th></tr>
