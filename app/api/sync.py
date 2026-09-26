@@ -99,6 +99,30 @@ def library_retag(db: Session = Depends(get_db)):
     return {"ok": True, "job_id": job.id}
 
 
+@router.post("/api/library/rescan")
+def library_rescan(payload: dict | None = None, db: Session = Depends(get_db)):
+    """Verify completed files; remove unplayable ones and queue re-download.
+    Pass {"remove": false} for a report-only dry run."""
+    import threading
+    from app.db.database import SessionLocal
+    from app.sync.library import run_library_rescan
+    running = db.execute(select(SyncJob).where(
+        SyncJob.playlist_id.is_(None), SyncJob.status == "running",
+        SyncJob.finished_at.is_(None))).scalars().first()
+    if running:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=409,
+                            detail=f"Library job already running (job {running.id})")
+    remove = (payload or {}).get("remove", True)
+    job = SyncJob(playlist_id=None, status="running")
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    threading.Thread(target=run_library_rescan,
+                     args=(SessionLocal, job.id, remove), daemon=True).start()
+    return {"ok": True, "job_id": job.id, "remove": remove}
+
+
 def build_stats(db: Session) -> dict:
     from sqlalchemy import func, desc
     from app.db.models import Playlist, PlaylistTrack, Track

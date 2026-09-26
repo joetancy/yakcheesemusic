@@ -64,3 +64,74 @@ def playlist_usage(db, playlist_id: int) -> tuple[int, int]:
             except OSError:
                 pass
     return total, files
+
+
+def run_library_rescan(session_factory, job_id: int, remove: bool = True) -> None:
+    """Verify every completed track's file; damaged ones are removed (or
+    flagged when remove=False) and reset to pending for re-download."""
+    import logging
+    import os
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from app.audio.probe import check_playable
+    from app.db.models import SyncJob, Track
+    from app.sync.prune import prune_empty_parents
+    from app.config import get_settings
+    log = logging.getLogger("yakcheesemusic")
+    music_dir = get_settings().music_dir
+    db = session_factory()
+    try:
+        job = db.get(SyncJob, job_id)
+        rows = db.execute(select(Track).where(Track.status == "completed")).scalars().all()
+        targets = [(t.id, t.local_path) for t in rows if t.local_path]
+        log.info("job=%s action=rescan status=start files=%s remove=%s",
+                 job_id, len(targets), remove)
+        if job:
+            job.tracks_seen = len(targets)
+            db.commit()
+        damaged, errors = [], []
+        for tid, path in targets:
+            reason = check_playable(path or "")
+            if reason is None:
+                continue
+            t = db.get(Track, tid)
+            if remove and path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                    try:
+                        prune_empty_parents(path, music_dir)
+                    except Exception:
+                        pass
+                except OSError as e:
+                    errors.append(f"{path}: {e}")
+                    continue
+            if t and remove:
+                t.local_path = None
+                t.status = "pending"
+            damaged.append(f"{path} ({reason})")
+            if remove:
+                db.commit()
+        if job:
+            job.tracks_downloaded = len(damaged)
+            job.tracks_failed = len(errors)
+            if damaged or errors:
+                job.error = "; ".join((damaged + errors)[:10])
+            job.status = "success" if not errors else "failed"
+            job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            db.commit()
+        log.info("job=%s action=rescan status=done damaged=%s errors=%s",
+                 job_id, len(damaged), len(errors))
+    except Exception as e:
+        log.exception("job=%s action=rescan status=error", job_id)
+        try:
+            job = db.get(SyncJob, job_id)
+            if job:
+                from datetime import datetime, timezone
+                job.status = "failed"
+                job.error = str(e)[:1000]
+                job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()

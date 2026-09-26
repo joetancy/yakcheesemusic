@@ -1,3 +1,5 @@
+import os
+
 from app.downloaders.slskd import (
     _ext_of, describe_quality, file_to_result, parse_filename, AUDIO_EXTS,
 )
@@ -114,3 +116,107 @@ def test_probe_mp3(tmp_path):
     info = probe_audio(str(tmp_path / "t.wav"))
     assert info.get("sample_rate") == 44100
     assert info.get("bit_depth") == 16
+
+
+def _valid_wav(path):
+    import wave
+    wf = wave.open(str(path), "wb")
+    wf.setnchannels(2)
+    wf.setsampwidth(2)
+    wf.setframerate(44100)
+    wf.writeframes(b"\x00" * 4410 * 2 * 2)
+    wf.close()
+
+
+def test_check_playable(tmp_path):
+    from app.audio.probe import check_playable
+    assert check_playable(str(tmp_path / "nope.mp3")) == "missing file"
+    empty = tmp_path / "empty.mp3"
+    empty.write_bytes(b"")
+    assert check_playable(str(empty)) == "empty file"
+    garbage = tmp_path / "junk.mp3"
+    garbage.write_bytes(os.urandom(256))
+    assert check_playable(str(garbage)) is not None
+    tagonly = tmp_path / "tags.mp3"
+    from mutagen.id3 import ID3, TIT2
+    tags = ID3()
+    tags.add(TIT2(text="T"))
+    tags.save(str(tagonly))
+    assert check_playable(str(tagonly)) is not None  # tag-only, no audio
+    good = tmp_path / "good.wav"
+    _valid_wav(good)
+    assert check_playable(str(good)) is None
+
+
+def test_run_library_rescan(tmp_path):
+    import os
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.db.database import Base
+    from app.db.models import SyncJob, Track
+    from app.sync.library import run_library_rescan
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    TestingSession = sessionmaker(bind=engine, future=True)
+
+    bad = tmp_path / "bad.mp3"
+    bad.write_bytes(b"")
+    good = tmp_path / "good.wav"
+    _valid_wav(good)
+
+    db = TestingSession()
+    db.add(Track(title="Bad", artist="X", status="completed", local_path=str(bad)))
+    db.add(Track(title="Good", artist="Y", status="completed", local_path=str(good)))
+    db.add(Track(title="NoFile", artist="Z", status="completed",
+                 local_path=str(tmp_path / "gone.mp3")))
+    job = SyncJob(playlist_id=None, status="running")
+    db.add(job)
+    db.commit()
+    jid = job.id
+    db.close()
+
+    run_library_rescan(TestingSession, jid, remove=True)
+
+    assert not bad.exists()  # damaged file removed
+    db = TestingSession()
+    by_title = {t.title: t for t in db.query(Track).all()}
+    assert by_title["Bad"].status == "pending" and by_title["Bad"].local_path is None
+    assert by_title["NoFile"].status == "pending"  # missing file queued too
+    assert by_title["Good"].status == "completed"  # playable untouched
+    job = db.get(SyncJob, jid)
+    assert job.status == "success" and job.tracks_seen == 3
+    assert job.tracks_downloaded == 2 and job.tracks_failed == 0
+    db.close()
+
+
+def test_run_library_rescan_dry_run(tmp_path):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.db.database import Base
+    from app.db.models import SyncJob, Track
+    from app.sync.library import run_library_rescan
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    TestingSession = sessionmaker(bind=engine, future=True)
+
+    bad = tmp_path / "bad.mp3"
+    bad.write_bytes(b"")
+    db = TestingSession()
+    db.add(Track(title="Bad", artist="X", status="completed", local_path=str(bad)))
+    job = SyncJob(playlist_id=None, status="running")
+    db.add(job)
+    db.commit()
+    jid = job.id
+    db.close()
+
+    run_library_rescan(TestingSession, jid, remove=False)
+
+    assert bad.exists()  # dry run deletes nothing
+    db = TestingSession()
+    t = db.query(Track).filter_by(title="Bad").one()
+    assert t.status == "completed" and t.local_path == str(bad)  # untouched
+    job = db.get(SyncJob, jid)
+    assert job.status == "success" and job.tracks_downloaded == 1
+    db.close()

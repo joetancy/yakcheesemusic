@@ -34,6 +34,9 @@
 <h2>Library</h2>
 <p><button onclick="rgSweep()">Apply ReplayGain −14 LUFS to all files</button>
 <span id="rg-result" class="muted"></span></p>
+<p><button onclick="rescan(true)">Rescan library — remove unplayable files</button>
+<button onclick="rescan(false)">Dry run (report only)</button>
+<span id="rescan-result" class="muted"></span></p>
 
 <h2>Sync jobs</h2>
 <table id="jobs-table" class="rtable"><tr><th>Job</th><th>Playlist</th><th>Status</th><th>Seen</th><th>Downloaded</th><th>Failed</th></tr>
@@ -48,6 +51,12 @@ async function rgSweep(){
   document.getElementById('rg-result').textContent='sweep started…';
   const r=await fetch('/api/replaygain',{method:'POST'});
   document.getElementById('rg-result').textContent=JSON.stringify(await r.json());
+}
+async function rescan(remove){
+  if(remove && !confirm('Delete every unplayable file and queue it for re-download?')) return;
+  document.getElementById('rescan-result').textContent='rescan started…';
+  const r=await fetch('/api/library/rescan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({remove})});
+  document.getElementById('rescan-result').textContent=JSON.stringify(await r.json());
 }
 function set(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
 function tlist(items){
