@@ -46,6 +46,17 @@ def human_size(n: int) -> str:
     return f"{n:.1f} TB"
 
 
+def make_readable(path: str) -> None:
+    """Players (navidrome/jellyfin, uid 1000) must read root-written files."""
+    import logging
+    import os
+    try:
+        os.chmod(path, 0o644)
+    except OSError as e:
+        logging.getLogger("yakcheesemusic").warning(
+            "chmod failed for %s: %s", path, e)
+
+
 def playlist_usage(db, playlist_id: int) -> tuple[int, int]:
     """(bytes_on_disk, files_with_local_path) for active memberships."""
     import os
@@ -123,6 +134,122 @@ def run_library_rescan(session_factory, job_id: int, remove: bool = True) -> Non
                  job_id, len(damaged), len(errors))
     except Exception as e:
         log.exception("job=%s action=rescan status=error", job_id)
+        try:
+            job = db.get(SyncJob, job_id)
+            if job:
+                from datetime import datetime, timezone
+                job.status = "failed"
+                job.error = str(e)[:1000]
+                job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
+AUDIO_EXTS = {".flac", ".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wav",
+              ".wv", ".ape", ".alac", ".mp4", ".oga", ".aif", ".aiff"}
+
+
+def scan_audio_files(music_dir: str) -> list[str]:
+    """All audio files under music_dir, sorted. Skips dot-dirs and _Playlists."""
+    import os
+    out = []
+    for root, dirs, files in os.walk(music_dir):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "_Playlists"]
+        for fn in files:
+            if os.path.splitext(fn)[1].lower() in AUDIO_EXTS:
+                out.append(os.path.join(root, fn))
+    return sorted(out)
+
+
+def _md5(path: str) -> str | None:
+    import hashlib
+    h = hashlib.md5()
+    try:
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(chunk)
+    except OSError:
+        return None
+    return h.hexdigest()
+
+
+def run_library_dedup(session_factory, job_id: int, remove: bool = True) -> None:
+    """Delete audio files no track references (orphans); report byte-identical
+    groups. Referenced files are never touched, even when identical."""
+    import logging
+    import os
+    from collections import defaultdict
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from app.db.models import SyncJob, Track
+    from app.sync.prune import prune_empty_parents
+    from app.config import get_settings
+    log = logging.getLogger("yakcheesemusic")
+    music_dir = get_settings().music_dir
+    db = session_factory()
+    try:
+        job = db.get(SyncJob, job_id)
+        rows = db.execute(select(Track.local_path).where(
+            Track.local_path.is_not(None))).scalars().all()
+        referenced = {p for p in rows if p}
+        files = scan_audio_files(music_dir)
+        log.info("job=%s action=dedup status=start files=%s remove=%s",
+                 job_id, len(files), remove)
+        if job:
+            job.tracks_seen = len(files)
+            db.commit()
+        orphans = [p for p in files if p not in referenced]
+        removed, errors = [], []
+        if remove:
+            for p in orphans:
+                try:
+                    os.remove(p)
+                    removed.append(p)
+                    try:
+                        prune_empty_parents(p, music_dir)
+                    except Exception:
+                        pass
+                except OSError as e:
+                    errors.append(f"{p}: {e}")
+        by_size: dict[int, list[str]] = defaultdict(list)
+        for p in files:
+            if p in removed:
+                continue
+            try:
+                by_size[os.path.getsize(p)].append(p)
+            except OSError:
+                pass
+        identical = []
+        for group in by_size.values():
+            if len(group) < 2:
+                continue
+            by_hash: dict[str, list[str]] = defaultdict(list)
+            for p in group:
+                h = _md5(p)
+                if h:
+                    by_hash[h].append(p)
+            identical.extend(sorted(g) for g in by_hash.values() if len(g) > 1)
+        if job:
+            job.tracks_downloaded = len(removed) if remove else len(orphans)
+            job.tracks_failed = len(errors)
+            notes = []
+            if orphans:
+                notes.append(f"orphans ({len(orphans)}): " + "; ".join(orphans[:10]))
+            for g in identical[:5]:
+                notes.append("identical: " + "; ".join(g))
+            notes.extend(errors)
+            if notes:
+                job.error = "; ".join(notes)[:2000]
+            job.status = "success" if not errors else "failed"
+            job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            db.commit()
+        log.info("job=%s action=dedup status=done orphans=%s identical=%s errors=%s",
+                 job_id, len(orphans), len(identical), len(errors))
+    except Exception as e:
+        log.exception("job=%s action=dedup status=error", job_id)
         try:
             job = db.get(SyncJob, job_id)
             if job:

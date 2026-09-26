@@ -123,6 +123,30 @@ def library_rescan(payload: dict | None = None, db: Session = Depends(get_db)):
     return {"ok": True, "job_id": job.id, "remove": remove}
 
 
+@router.post("/api/library/dedup")
+def library_dedup(payload: dict | None = None, db: Session = Depends(get_db)):
+    """Delete orphan audio files (referenced by no track); report byte-identical
+    groups. Pass {"remove": false} for a report-only dry run."""
+    import threading
+    from app.db.database import SessionLocal
+    from app.sync.library import run_library_dedup
+    running = db.execute(select(SyncJob).where(
+        SyncJob.playlist_id.is_(None), SyncJob.status == "running",
+        SyncJob.finished_at.is_(None))).scalars().first()
+    if running:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=409,
+                            detail=f"Library job already running (job {running.id})")
+    remove = (payload or {}).get("remove", True)
+    job = SyncJob(playlist_id=None, status="running")
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    threading.Thread(target=run_library_dedup,
+                     args=(SessionLocal, job.id, remove), daemon=True).start()
+    return {"ok": True, "job_id": job.id, "remove": remove}
+
+
 def build_stats(db: Session) -> dict:
     from sqlalchemy import func, desc
     from app.db.models import Playlist, PlaylistTrack, Track

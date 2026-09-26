@@ -220,3 +220,86 @@ def test_run_library_rescan_dry_run(tmp_path):
     job = db.get(SyncJob, jid)
     assert job.status == "success" and job.tracks_downloaded == 1
     db.close()
+
+
+def test_make_readable(tmp_path):
+    import os
+    import stat
+    from app.sync.library import make_readable
+    p = tmp_path / "song.mp3"
+    p.write_bytes(b"x" * 1024)
+    os.chmod(str(p), 0o600)
+    make_readable(str(p))
+    assert stat.S_IMODE(os.stat(str(p)).st_mode) == 0o644
+    make_readable(str(tmp_path / "missing.mp3"))  # never raises
+
+
+def _dedup_db(files):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.db.database import Base
+    from app.db.models import SyncJob, Track
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    TestingSession = sessionmaker(bind=engine, future=True)
+    db = TestingSession()
+    for title, path in files:
+        db.add(Track(title=title, artist="A", status="completed", local_path=path))
+    job = SyncJob(playlist_id=None, status="running")
+    db.add(job)
+    db.commit()
+    jid = job.id
+    db.close()
+    return TestingSession, jid
+
+
+def test_run_library_dedup(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    import app.config
+    from app.db.models import SyncJob
+    from app.sync.library import run_library_dedup
+    monkeypatch.setattr(app.config, "get_settings",
+                        lambda: SimpleNamespace(music_dir=str(tmp_path)))
+
+    keep = tmp_path / "keep.mp3"
+    keep.write_bytes(os.urandom(2048))
+    orphan = tmp_path / "orphan.mp3"
+    orphan.write_bytes(os.urandom(2048))
+    dup_a = tmp_path / "dup_a.mp3"
+    dup_b = tmp_path / "dup_b.mp3"
+    dup_a.write_bytes(b"D" * 2048)
+    dup_b.write_bytes(b"D" * 2048)
+
+    TestingSession, jid = _dedup_db([
+        ("Keep", str(keep)), ("DupA", str(dup_a)), ("DupB", str(dup_b))])
+
+    run_library_dedup(TestingSession, jid, remove=True)
+
+    assert keep.exists() and dup_a.exists() and dup_b.exists()  # referenced kept
+    assert not orphan.exists()  # orphan removed
+    db = TestingSession()
+    job = db.get(SyncJob, jid)
+    assert job.status == "success" and job.tracks_downloaded == 1
+    assert "orphan" in (job.error or "") and "identical" in (job.error or "")
+    db.close()
+
+
+def test_run_library_dedup_dry_run(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    import app.config
+    from app.db.models import SyncJob
+    from app.sync.library import run_library_dedup
+    monkeypatch.setattr(app.config, "get_settings",
+                        lambda: SimpleNamespace(music_dir=str(tmp_path)))
+
+    orphan = tmp_path / "orphan.mp3"
+    orphan.write_bytes(os.urandom(1024))
+    TestingSession, jid = _dedup_db([])
+
+    run_library_dedup(TestingSession, jid, remove=False)
+
+    assert orphan.exists()
+    db = TestingSession()
+    job = db.get(SyncJob, jid)
+    assert job.status == "success" and job.tracks_downloaded == 1
+    db.close()

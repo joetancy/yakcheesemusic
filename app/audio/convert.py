@@ -62,6 +62,8 @@ def convert_to_mp3(src: str, timeout_s: int = 900) -> str:
         dest = base
     os.replace(tmp, dest)
     os.remove(src)
+    from app.sync.library import make_readable
+    make_readable(dest)  # mkstemp creates 0600; players need read access
     return dest
 
 

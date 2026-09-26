@@ -37,6 +37,9 @@
 <p><button onclick="rescan(true)">Rescan library — remove unplayable files</button>
 <button onclick="rescan(false)">Dry run (report only)</button>
 <span id="rescan-result" class="muted"></span></p>
+<p><button onclick="dedup(true)">Remove duplicate/orphan files</button>
+<button onclick="dedup(false)">Dry run (report only)</button>
+<span id="dedup-result" class="muted"></span></p>
 
 <h2>Sync jobs</h2>
 <table id="jobs-table" class="rtable"><tr><th>Job</th><th>Playlist</th><th>Status</th><th>Seen</th><th>Downloaded</th><th>Failed</th></tr>

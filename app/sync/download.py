@@ -92,6 +92,8 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
                     log.warning("retag skipped for %s", final)
             except Exception as e:
                 log.warning("retag failed for %s: %s", final, e)
+            from app.sync.library import make_readable as _readable
+            _readable(str(final))
             try:  # probe the FINAL file (post-transcode)
                 from app.audio.probe import probe_audio
                 for k, v in probe_audio(str(final)).items():
