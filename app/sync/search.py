@@ -9,9 +9,11 @@ from app.matching.matcher import match_candidates
 
 
 def search_candidates(track: Track, auto: float = 90.0,
-                      conditional: float = 80.0, review: float = 65.0) -> list[dict]:
+                      conditional: float = 80.0, review: float = 65.0,
+                      query: str | None = None) -> list[dict]:
     """Search download sources and return ranked candidate dicts (with score/verdict)."""
-    results = SlskdDownloader().search(track.title, track.artist, track.album or "")
+    results = SlskdDownloader().search(track.title, track.artist, track.album or "",
+                                       query=query)
     source = {"title": track.title, "artist": track.artist,
               "album": track.album or "", "duration_ms": track.duration_ms,
               "isrc": track.isrc}

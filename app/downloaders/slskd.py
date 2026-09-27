@@ -111,9 +111,14 @@ class SlskdDownloader(DownloaderBase):
             raise RuntimeError("slskd rejected API key (401/403)")
         r.raise_for_status()
 
-    def search(self, title: str, artist: str, album: str = "") -> list[SearchResult]:
-        queries = [f"{artist} {title}".strip(), (title or "").strip(), (artist or "").strip()]
-        queries = [q for q in dict.fromkeys(queries) if q]
+    def search(self, title: str, artist: str, album: str = "",
+               query: str | None = None) -> list[SearchResult]:
+        if query and query.strip():
+            queries = [query.strip()]
+        else:
+            queries = [f"{artist} {title}".strip(), (title or "").strip(),
+                       (artist or "").strip()]
+            queries = [q for q in dict.fromkeys(queries) if q]
         if not queries:
             return []
         with httpx.Client(timeout=20) as c:

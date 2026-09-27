@@ -152,7 +152,8 @@ def review_page(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/review/{track_id}", response_class=HTMLResponse)
-def review_detail(track_id: int, request: Request, db: Session = Depends(get_db)):
+def review_detail(track_id: int, request: Request, db: Session = Depends(get_db),
+                 shown: int = 10):
     from fastapi import HTTPException
     from sqlalchemy import desc
     from app.db.models import DownloadCandidate
@@ -170,9 +171,12 @@ def review_detail(track_id: int, request: Request, db: Session = Depends(get_db)
               "verdict": classify_score(c.score or 0, auto, conditional, review),
               "rejected": bool(c.rejected_reason), "source": c.source_url}
              for c in rows]
-    # review page shows top 10 usable + all rejected (so undo stays possible)
-    alive = [c for c in cands if not c["rejected"]][:10]
-    shown = alive + [c for c in cands if c["rejected"]]
+    # review page shows usable candidates in pages of 10 + all rejected
+    # (so undo stays possible); ?shown=N pages through the usable ones
+    shown = max(10, min(shown, 500))
+    usable = [c for c in cands if not c["rejected"]]
+    alive = usable[:shown]
+    shown_list = alive + [c for c in cands if c["rejected"]]
     total = len(cands)
     if t.status == "failed":
         reason = "Last download attempt failed. Check candidates and retry, or search again."
@@ -181,13 +185,16 @@ def review_detail(track_id: int, request: Request, db: Session = Depends(get_db)
     elif not cands:
         reason = "No search results found. Try Search again later (peers change)."
     else:
-        alive = [c for c in cands if not c["rejected"]]
-        if not alive:
+        remaining = [c for c in cands if not c["rejected"]]
+        if not remaining:
             reason = "All candidates were rejected. Unreject one or search again."
         else:
-            b = alive[0]
+            b = remaining[0]
             reason = (f"Best usable match scores {b['score']:.1f} ({b['verdict']}) — "
                       f"below the auto-download line. Pick one manually or reject and re-search.")
     return templates.TemplateResponse(request, "review_detail.html",
-                                       {"track": t, "candidates": shown, "reason": reason,
+                                       {"track": t, "candidates": shown_list,
+                                        "reason": reason,
+                                        "shown_usable": len(alive),
+                                        "total_usable": len(usable),
                                         "total_candidates": total})

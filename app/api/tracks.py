@@ -42,17 +42,19 @@ def get_track(track_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{track_id}/search")
-def search_track(track_id: int, db: Session = Depends(get_db)):
+def search_track(track_id: int, payload: dict | None = None,
+                 db: Session = Depends(get_db)):
     from fastapi import HTTPException
     from app.sync.search import search_candidates, save_candidates
     t = db.get(Track, track_id)
     if not t:
         raise HTTPException(status_code=404, detail="Not found")
+    custom_query = ((payload or {}).get("query") or "").strip() or None
     t.status = "searching"
     db.commit()
     try:
         from app.db.settings_store import get_thresholds
-        ranked = search_candidates(t, *get_thresholds(db))
+        ranked = search_candidates(t, *get_thresholds(db), query=custom_query)
     except Exception as e:
         t.status = "failed"
         db.commit()

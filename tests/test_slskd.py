@@ -444,3 +444,51 @@ def test_slskd_429_gives_up_after_retries(monkeypatch):
     except Exception as e:
         assert "429" in str(e) or "rate" in str(e).lower() or "Too Many" in str(e)
     assert real_httpx is not None
+
+
+def test_slskd_custom_query_overrides_auto_queries(monkeypatch):
+    import app.downloaders.slskd as mod
+    from app.downloaders.slskd import SlskdDownloader
+    monkeypatch.setattr(mod.time, "sleep", lambda s: None)
+    seen = []
+
+    class Resp:
+        status_code = 200
+        headers = {}
+        text = "{}"
+
+        def __init__(self, body=None):
+            self._body = body or {}
+
+        def json(self):
+            return self._body
+
+        def raise_for_status(self):
+            pass
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, url, **kw):
+            seen.append((kw.get("json") or {}).get("searchText"))
+            return Resp({"id": "sid1"})
+
+        def get(self, url, **kw):
+            if url.endswith("/responses"):
+                return Resp([])
+            return Resp({"state": "completed"})
+
+        def delete(self, url, **kw):
+            return Resp({})
+
+    monkeypatch.setattr(mod.httpx, "Client", FakeClient)
+    dl = SlskdDownloader(url="http://x", api_key="k", search_timeout_s=5)
+    assert dl.search("Ditto", "NewJeans", query="brent ii") == []
+    assert seen == ["brent ii"]  # one custom query, no auto variants

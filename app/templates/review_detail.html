@@ -6,6 +6,8 @@
 <p class="muted">{{ reason }}</p>
 <p>
 <button onclick="act('search')">Search again</button>
+<input id="custom-q" placeholder="Custom Soulseek search (optional)" size="30">
+<button onclick="customSearch()">Search with custom term</button>
 <button onclick="act('retry')">Retry (reset to pending)</button>
 {% if track.status == 'skipped' %}
 <button onclick="act('unskip')">Unskip (retry in sync)</button>
@@ -14,7 +16,7 @@
 {% endif %}
 <span id="result" class="muted"></span>
 </p>
-<h2>Candidates (top 10 of {{ total_candidates }})</h2>
+<h2>Candidates (showing {{ shown_usable }} of {{ total_usable }} usable, {{ total_candidates - total_usable }} rejected)</h2>
 <table class="rtable"><tr><th>Score</th><th>Verdict</th><th>Quality</th><th>Title</th><th>Artist</th><th>Source file</th><th></th></tr>
 {% for c in candidates %}<tr{% if c.rejected %} style="opacity:.45"{% endif %}>
 <td data-label="Score">{{ "%.1f"|format(c.score or 0) }}</td><td data-label="Verdict">{{ c.verdict or "—" }}</td>
@@ -24,6 +26,7 @@
 {% else %}<button onclick="useCand({{ c.id }})">Use this</button> <button onclick="reject({{ c.id }})">Reject</button>{% endif %}</td>
 </tr>{% else %}<tr><td colspan="7">No candidates yet — hit Search again.</td></tr>{% endfor %}
 </table>
+{% if shown_usable < total_usable %}<p><a href="/review/{{ track.id }}?shown={{ shown_usable + 10 }}"><button>Show 10 more ({{ total_usable - shown_usable }} remaining)</button></a></p>{% endif %}
 <script>
 const TID = {{ track.id }};
 async function post(url, body){
@@ -33,6 +36,11 @@ async function post(url, body){
   if(r.ok) setTimeout(()=>location.reload(), 800);
 }
 function act(a){ post('/api/tracks/'+TID+'/'+a); }
+function customSearch(){
+  const q = document.getElementById('custom-q').value.trim();
+  if(!q){ act('search'); return; }
+  post('/api/tracks/'+TID+'/search', {query:q});
+}
 function useCand(id){ if(confirm('Download this candidate?')) post('/api/tracks/'+TID+'/download', {candidate_id:id}); }
 function reject(id){ post('/api/tracks/'+TID+'/reject', {candidate_id:id}); }
 function unreject(id){ post('/api/tracks/'+TID+'/unreject', {candidate_id:id}); }
