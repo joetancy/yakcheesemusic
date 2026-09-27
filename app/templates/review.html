@@ -9,10 +9,13 @@
 <script>
 async function retryAll(){
   if(!confirm('Reset all needs_review + failed tracks to pending?')) return;
-  const r = await fetch('/api/tracks/retry-all', {method:'POST'});
-  const j = await r.json().catch(()=>({}));
-  document.getElementById('result').textContent = JSON.stringify(j);
-  if(r.ok) setTimeout(()=>location.reload(), 800);
+  const el=document.getElementById('result');el.textContent='resetting…';
+  try{
+    const r = await fetch('/api/tracks/retry-all', {method:'POST'});
+    const j = await r.json().catch(()=>({}));
+    el.textContent = JSON.stringify(j);
+    if(r.ok) setTimeout(()=>location.reload(), 800);
+  }catch(e){ el.textContent='request failed: '+e; }
 }
 </script>
 {% endblock %}

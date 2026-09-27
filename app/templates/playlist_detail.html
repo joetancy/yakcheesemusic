@@ -6,7 +6,7 @@
 <p>
 <button onclick="scanPlaylist({{ playlist.id }})">Scan now</button>
 <button onclick="syncPlaylist({{ playlist.id }})">Sync now</button>
-<button onclick="deletePlaylist({{ playlist.id }})">Delete</button>
+<button onclick="deletePlaylist({{ playlist.id }}, this)">Delete</button>
 <span id="scan-result" class="muted"></span>
 </p>
 <p class="muted">Last scan: {{ playlist.last_scan_at or "never" }} · Last sync: {{ playlist.last_sync_at or "never" }} · Size: {{ total_size }} in {{ total_files }} files</p>
@@ -30,38 +30,54 @@
 <script>
 async function research(id, btn){
   btn.disabled = true;
-  const r = await fetch('/api/tracks/'+id+'/search', {method:'POST'});
-  const j = await r.json().catch(()=>({}));
-  document.getElementById('scan-result').textContent = JSON.stringify(j);
+  try{
+    const r = await fetch('/api/tracks/'+id+'/search', {method:'POST'});
+    const j = await r.json().catch(()=>({}));
+    document.getElementById('scan-result').textContent = JSON.stringify(j);
+    if(r.ok) setTimeout(()=>location.reload(), 1200);
+  }catch(e){
+    document.getElementById('scan-result').textContent = 'request failed: '+e;
+  }
   btn.disabled = false;
-  if(r.ok) setTimeout(()=>location.reload(), 1200);
 }
 async function scanPlaylist(id){
-  document.getElementById('scan-result').textContent='scanning…';
-  const r=await fetch('/api/playlists/'+id+'/scan',{method:'POST'});
-  const j=await r.json();
-  document.getElementById('scan-result').textContent=JSON.stringify(j);
-  if(r.ok) location.reload();
+  const el=document.getElementById('scan-result');el.textContent='scanning…';
+  try{
+    const r=await fetch('/api/playlists/'+id+'/scan',{method:'POST'});
+    const j=await r.json();
+    el.textContent=JSON.stringify(j);
+    if(r.ok) location.reload();
+  }catch(e){el.textContent='request failed: '+e;}
 }
 async function syncPlaylist(id){
   if(!confirm('Sync this playlist? Missing tracks with confident matches will download automatically.')) return;
-  const r=await fetch('/api/playlists/'+id+'/sync',{method:'POST'});
-  trackJob(await r.json(), 'scan-result');
+  const el=document.getElementById('scan-result');el.textContent='starting…';
+  try{
+    const r=await fetch('/api/playlists/'+id+'/sync',{method:'POST'});
+    trackJob(await r.json(), 'scan-result');
+  }catch(e){el.textContent='request failed: '+e;}
 }
 async function genM3u(id){
-  document.getElementById('scan-result').textContent='generating…';
-  const r=await fetch('/api/playlists/'+id+'/m3u',{method:'POST'});
-  const j=await r.json();
-  document.getElementById('scan-result').textContent=JSON.stringify(j);
-  if(r.ok) location.reload();
+  const el=document.getElementById('scan-result');el.textContent='generating…';
+  try{
+    const r=await fetch('/api/playlists/'+id+'/m3u',{method:'POST'});
+    const j=await r.json();
+    el.textContent=JSON.stringify(j);
+    if(r.ok) location.reload();
+  }catch(e){el.textContent='request failed: '+e;}
 }
-async function deletePlaylist(id){
+async function deletePlaylist(id, btn){
   if(!confirm('Delete this playlist?')) return;
   const withFiles = confirm('Also delete its downloaded files from disk?\n\nOK = delete files too (files used by other playlists are kept)\nCancel = keep files');
-  const r=await fetch('/api/playlists/'+id+(withFiles?'?delete_files=true':''),{method:'DELETE'});
-  const j=await r.json();
-  if(r.ok) location.href='/playlists';
-  else alert('Delete failed: '+JSON.stringify(j));
+  const el=document.getElementById('scan-result');
+  if(btn){btn.disabled=true;btn.textContent='Deleting…';}
+  el.textContent='deleting…';
+  try{
+    const r=await fetch('/api/playlists/'+id+(withFiles?'?delete_files=true':''),{method:'DELETE'});
+    const j=await r.json();
+    if(r.ok) location.href='/playlists';
+    else { el.textContent='Delete failed: '+JSON.stringify(j); if(btn){btn.disabled=false;btn.textContent='Delete';} }
+  }catch(e){ el.textContent='request failed: '+e; if(btn){btn.disabled=false;btn.textContent='Delete';} }
 }
 </script>
 {% endblock %}

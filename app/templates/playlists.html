@@ -16,10 +16,13 @@ async function deletePlaylist(id, btn){
   const name = btn.closest('tr').firstElementChild.textContent.trim();
   if(!confirm('Delete playlist "' + name + '"?')) return;
   const withFiles = confirm('Also delete its downloaded files from disk?\n\nOK = delete files too (files used by other playlists are kept)\nCancel = keep files');
-  const r = await fetch('/api/playlists/' + id + (withFiles ? '?delete_files=true' : ''), {method: 'DELETE'});
-  const j = await r.json();
-  if(r.ok){ location.reload(); }
-  else alert('Delete failed: ' + JSON.stringify(j));
+  btn.disabled=true;btn.textContent='Deleting…';
+  try{
+    const r = await fetch('/api/playlists/' + id + (withFiles ? '?delete_files=true' : ''), {method: 'DELETE'});
+    const j = await r.json();
+    if(r.ok){ location.reload(); }
+    else { alert('Delete failed: ' + JSON.stringify(j)); btn.disabled=false;btn.textContent='Delete'; }
+  }catch(e){ alert('Request failed: ' + e); btn.disabled=false;btn.textContent='Delete'; }
 }
 </script>
 {% endblock %}

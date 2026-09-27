@@ -32,24 +32,33 @@ Score ≥ review → needs review, else rejected.</p>
 <script>
 async function saveSettings(e){
   e.preventDefault();
+  const el=document.getElementById('settings-result');el.textContent='saving…';
   const body = {
     match_auto: parseFloat(document.getElementById('match_auto').value),
     match_conditional: parseFloat(document.getElementById('match_conditional').value),
     match_review: parseFloat(document.getElementById('match_review').value),
   };
-  const r = await fetch('/api/settings', {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-  document.getElementById('settings-result').textContent = JSON.stringify(await r.json());
+  try{
+    const r = await fetch('/api/settings', {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    el.textContent = JSON.stringify(await r.json());
+  }catch(err){ el.textContent='request failed: '+err; }
   return false;
 }
 async function saveFormat(){
-  const v = document.getElementById('preferred_format').value;
-  const r = await fetch('/api/settings', {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({preferred_format:v})});
-  document.getElementById('format-result').textContent = JSON.stringify(await r.json());
+  const el=document.getElementById('format-result');el.textContent='saving…';
+  try{
+    const v = document.getElementById('preferred_format').value;
+    const r = await fetch('/api/settings', {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({preferred_format:v})});
+    el.textContent = JSON.stringify(await r.json());
+  }catch(err){ el.textContent='request failed: '+err; }
 }
 async function convertExisting(){
   if(!confirm('Convert all existing lossless files to 320kbps MP3? Originals are deleted after each verified convert.')) return;
-  const r = await fetch('/api/library/convert', {method:'POST'});
-  trackJob(await r.json(), 'format-result');
+  const el=document.getElementById('format-result');el.textContent='starting…';
+  try{
+    const r = await fetch('/api/library/convert', {method:'POST'});
+    trackJob(await r.json(), 'format-result');
+  }catch(err){ el.textContent='request failed: '+err; }
 }
 </script>
 {% endblock %}

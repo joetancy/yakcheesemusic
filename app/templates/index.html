@@ -51,18 +51,21 @@
 function esc(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 async function rgSweep(){
   if(!confirm('Tag the whole library with ReplayGain at −14 LUFS? Already-tagged files are skipped.')) return;
-  const r=await fetch('/api/replaygain',{method:'POST'});
-  trackJob(await r.json(), 'rg-result');
+  const el=document.getElementById('rg-result');el.textContent='starting…';
+  try{const r=await fetch('/api/replaygain',{method:'POST'});trackJob(await r.json(),'rg-result');}
+  catch(e){el.textContent='request failed: '+e;}
 }
 async function rescan(remove){
   if(remove && !confirm('Delete every unplayable file and queue it for re-download?')) return;
-  const r=await fetch('/api/library/rescan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({remove})});
-  trackJob(await r.json(), 'rescan-result');
+  const el=document.getElementById('rescan-result');el.textContent='starting…';
+  try{const r=await fetch('/api/library/rescan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({remove})});trackJob(await r.json(),'rescan-result');}
+  catch(e){el.textContent='request failed: '+e;}
 }
 async function dedup(remove){
   if(remove && !confirm('Delete every file that no track references (audio + lyrics/sidecars)? Referenced files and _Playlists are never touched.')) return;
-  const r=await fetch('/api/library/dedup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({remove, non_audio:remove})});
-  trackJob(await r.json(), 'dedup-result');
+  const el=document.getElementById('dedup-result');el.textContent='starting…';
+  try{const r=await fetch('/api/library/dedup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({remove, non_audio:remove})});trackJob(await r.json(),'dedup-result');}
+  catch(e){el.textContent='request failed: '+e;}
 }
 function set(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
 function tlist(items){
