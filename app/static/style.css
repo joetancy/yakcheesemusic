@@ -22,6 +22,9 @@ summary::marker{color:var(--accent)}
   table:not(.rtable){display:block;overflow-x:auto;white-space:nowrap}
   form input{display:block;width:100%;margin-bottom:.5rem}
   form button{width:100%}
+  /* uniform buttons: full-width stacked, same size everywhere */
+  main button{display:block;width:100%;margin:0 0 .5rem;padding:.7rem .9rem;box-sizing:border-box}
+  main p input,main p select{display:block;width:100%;margin-bottom:.5rem;box-sizing:border-box}
   /* stacked cards for wide tables: label left, value right */
   table.rtable, table.rtable tbody, table.rtable tr, table.rtable td{display:block;width:100%;box-sizing:border-box}
   table.rtable thead{display:none}
