@@ -19,20 +19,22 @@
 <div><h3>Downloading</h3><ul id="dl-list"></ul></div>
 </div>
 
-<h2>Playlists</h2>
+<details open data-remember="dash-playlists"><summary>Playlists</summary>
 <table id="progress-table" class="rtable"><tr><th>Name</th><th>Progress</th><th>Last sync</th></tr>
 {% for p in progress %}<tr><td data-label="Name"><a href="/playlists/{{ p.id }}">{{ p.name }}</a></td>
 <td data-label="Progress"><div class="bar"><div class="fill" style="width:{{ (100*p.done//p.total) if p.total else 0 }}%"></div></div> {{ p.done }}/{{ p.total }}</td>
 <td data-label="Last sync">{{ p.last_sync_at or "never" }}</td></tr>{% endfor %}
 </table>
+</details>
 
-<h2>Recent results</h2>
+<details open data-remember="dash-recent"><summary>Recent results</summary>
 <table id="recent-table" class="rtable"><tr><th>Track</th><th>Status</th><th>Quality</th></tr>
 {% for t in recent %}<tr><td data-label="Track">{{ t.title }} — {{ t.artist }}</td><td data-label="Status">{{ t.status }}</td><td data-label="Quality">{{ t.quality or "—" }}</td></tr>{% endfor %}
 </table>
+</details>
 
-<h2>Library</h2>
-<p><button onclick="rgSweep()">Apply ReplayGain −14 LUFS to all files</button>
+<details open data-remember="dash-library"><summary>Library</summary>
+<p><button onclick="rgSweep()">Apply ReplayGain −14 LUFS to all files (overwrite tags)</button>
 <span id="rg-result" class="muted"></span></p>
 <p><button onclick="rescan(true)">Rescan library — remove unplayable files</button>
 <button onclick="rescan(false)">Dry run (report only)</button>
@@ -40,17 +42,19 @@
 <p><button onclick="dedup(true)">Remove duplicate/orphan files</button>
 <button onclick="dedup(false)">Dry run (report only)</button>
 <span id="dedup-result" class="muted"></span></p>
+</details>
 
-<h2>Sync jobs</h2>
+<details open data-remember="dash-jobs"><summary>Sync jobs</summary>
 <table id="jobs-table" class="rtable"><tr><th>Job</th><th>Playlist</th><th>Status</th><th>Seen</th><th>Downloaded</th><th>Failed</th></tr>
 {% for j in jobs %}<tr><td data-label="Job">{{ j.id }}</td><td data-label="Playlist">{{ j.playlist_id }}</td><td data-label="Status">{{ j.status }}</td><td data-label="Seen">{{ j.seen }}</td><td data-label="Downloaded">{{ j.downloaded }}</td><td data-label="Failed">{{ j.failed }}</td></tr>{% endfor %}
 </table>
+</details>
 
 <p class="muted">Music dir: {{ music_dir }}</p>
 <script>
 function esc(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 async function rgSweep(){
-  if(!confirm('Tag the whole library with ReplayGain at −14 LUFS? Already-tagged files are skipped.')) return;
+  if(!confirm('Tag the whole library with ReplayGain at −14 LUFS? Existing ReplayGain tags are overwritten.')) return;
   const el=document.getElementById('rg-result');el.textContent='starting…';
   try{const r=await fetch('/api/replaygain',{method:'POST'});trackJob(await r.json(),'rg-result');}
   catch(e){el.textContent='request failed: '+e;}

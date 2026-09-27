@@ -10,6 +10,9 @@ input,select{font-size:1rem;padding:.5rem;max-width:100%;box-sizing:border-box}
 main{overflow-wrap:anywhere}main a{overflow-wrap:anywhere}
 .muted{overflow-wrap:anywhere}
 #theme-toggle{margin-left:auto;min-height:0;padding:.2rem .6rem}
+details{margin-bottom:.5rem}
+summary{cursor:pointer;font-size:1.4rem;font-weight:700;margin:.8rem 0 .4rem;list-style-position:inside}
+summary::marker{color:var(--accent)}
 @media (max-width:640px){
   body{padding:.6rem}
   h1{font-size:1.4rem}

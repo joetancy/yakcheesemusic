@@ -1,7 +1,7 @@
 """ReplayGain via rsgain: track gain at target LUFS, tags only, never re-encode.
 
-rsgain custom -s i -l <target> -S : scan + write tags, skip files that
-already have ReplayGain info (re-runs are cheap). Album gain is deferred
+rsgain custom -s i -l <target>: scan + write tags on every run, always
+overwriting existing ReplayGain tags. Album gain is deferred
 until album grouping is reliable (plan §13).
 """
 from __future__ import annotations
@@ -29,7 +29,7 @@ def scan_library(music_dir: str) -> list[str]:
 
 def build_command(paths: list[str], target_lufs: float) -> list[str]:
     return ["rsgain", "custom", "-s", "i", "-l", str(target_lufs),
-            "-S", "-q", *paths]
+            "-q", *paths]
 
 
 def apply_replaygain(paths: list[str], target_lufs: float = -14.0,

@@ -30,6 +30,17 @@ async function pollTrack(tid, el, timeoutMs){
     await new Promise(res=>setTimeout(res,2000));
   }
 }
+(function rememberSections(){
+  try{
+    document.querySelectorAll('details[data-remember]').forEach(d=>{
+      const k='section:'+d.dataset.remember;
+      if(localStorage.getItem(k)==='closed') d.removeAttribute('open');
+      d.addEventListener('toggle',()=>{
+        try{localStorage.setItem(k, d.open?'open':'closed');}catch(e){}
+      });
+    });
+  }catch(e){}
+})();
 function makeSortable(table){
   if(!table || !table.tHead) return;
   const ths=[...table.tHead.rows[0].cells];

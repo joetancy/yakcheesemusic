@@ -4,7 +4,7 @@ from app.audio.replaygain import build_command, scan_library
 def test_build_command():
     cmd = build_command(["a.mp3", "b.flac"], -14.0)
     assert cmd == ["rsgain", "custom", "-s", "i", "-l", "-14.0",
-                   "-S", "-q", "a.mp3", "b.flac"]
+                   "-q", "a.mp3", "b.flac"]
 
 
 def test_scan_library(tmp_path):
@@ -32,8 +32,8 @@ def test_apply_batches(monkeypatch):
     monkeypatch.setattr(subprocess, "run", fake_run)
     ok, failed = rg.apply_replaygain(["a", "b", "c"], -14.0, chunk=2)
     assert (ok, failed) == (3, [])
-    assert len(calls) == 2 and all(c[:7] == ["rsgain", "custom", "-s", "i",
-                                             "-l", "-14.0", "-S"] for c in calls)
+    assert len(calls) == 2 and all(c[:6] == ["rsgain", "custom", "-s", "i",
+                                             "-l", "-14.0"] for c in calls)
 
 
 def test_apply_records_failures(monkeypatch):
