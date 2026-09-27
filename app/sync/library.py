@@ -197,9 +197,12 @@ def _md5(path: str) -> str | None:
     return h.hexdigest()
 
 
-def run_library_dedup(session_factory, job_id: int, remove: bool = True) -> None:
+def run_library_dedup(session_factory, job_id: int, remove: bool = True,
+                      non_audio: bool = False) -> None:
     """Delete audio files no track references (orphans); report byte-identical
-    groups. Referenced files are never touched, even when identical."""
+    groups. Referenced files are never touched, even when identical.
+    With non_audio, unreferenced sidecars (.lrc, .cue, art) go too —
+    _Playlists is always protected."""
     import logging
     import os
     from collections import defaultdict
@@ -217,15 +220,27 @@ def run_library_dedup(session_factory, job_id: int, remove: bool = True) -> None
             Track.local_path.is_not(None))).scalars().all()
         referenced = {p for p in rows if p}
         files = scan_audio_files(music_dir)
-        log.info("job=%s action=dedup status=start files=%s remove=%s",
-                 job_id, len(files), remove)
+        sidecars: list[str] = []
+        if non_audio:
+            for root, dirs, filenames in os.walk(music_dir):
+                dirs[:] = [d for d in dirs
+                           if not d.startswith(".") and d != "_Playlists"]
+                for fn in filenames:
+                    p = os.path.join(root, fn)
+                    if (os.path.splitext(fn)[1].lower() not in AUDIO_EXTS
+                            and p not in referenced):
+                        sidecars.append(p)
+            sidecars.sort()
+        log.info("job=%s action=dedup status=start files=%s sidecars=%s remove=%s",
+                 job_id, len(files), len(sidecars), remove)
         if job:
-            job.tracks_seen = len(files)
+            job.tracks_seen = len(files) + len(sidecars)
             db.commit()
         orphans = [p for p in files if p not in referenced]
         removed, errors = [], []
+        targets = orphans + sidecars
         if remove:
-            for p in orphans:
+            for p in targets:
                 try:
                     os.remove(p)
                     removed.append(p)
@@ -254,11 +269,13 @@ def run_library_dedup(session_factory, job_id: int, remove: bool = True) -> None
                     by_hash[h].append(p)
             identical.extend(sorted(g) for g in by_hash.values() if len(g) > 1)
         if job:
-            job.tracks_downloaded = len(removed) if remove else len(orphans)
+            job.tracks_downloaded = len(removed) if remove else len(targets)
             job.tracks_failed = len(errors)
             notes = []
             if orphans:
                 notes.append(f"orphans ({len(orphans)}): " + "; ".join(orphans[:10]))
+            if sidecars:
+                notes.append(f"sidecars ({len(sidecars)}): " + "; ".join(sidecars[:10]))
             for g in identical[:5]:
                 notes.append("identical: " + "; ".join(g))
             notes.extend(errors)
@@ -267,8 +284,8 @@ def run_library_dedup(session_factory, job_id: int, remove: bool = True) -> None
             job.status = "success" if not errors else "failed"
             job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
             db.commit()
-        log.info("job=%s action=dedup status=done orphans=%s identical=%s errors=%s",
-                 job_id, len(orphans), len(identical), len(errors))
+        log.info("job=%s action=dedup status=done orphans=%s sidecars=%s identical=%s errors=%s",
+                 job_id, len(orphans), len(sidecars), len(identical), len(errors))
     except Exception as e:
         log.exception("job=%s action=dedup status=error", job_id)
         try:

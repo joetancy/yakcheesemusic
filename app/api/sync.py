@@ -139,13 +139,15 @@ def library_dedup(payload: dict | None = None, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409,
                             detail=f"Library job already running (job {running.id})")
     remove = (payload or {}).get("remove", True)
+    non_audio = (payload or {}).get("non_audio", False)
     job = SyncJob(playlist_id=None, status="running")
     db.add(job)
     db.commit()
     db.refresh(job)
     threading.Thread(target=run_library_dedup,
-                     args=(SessionLocal, job.id, remove), daemon=True).start()
-    return {"ok": True, "job_id": job.id, "remove": remove}
+                     args=(SessionLocal, job.id, remove, non_audio),
+                     daemon=True).start()
+    return {"ok": True, "job_id": job.id, "remove": remove, "non_audio": non_audio}
 
 
 def build_stats(db: Session) -> dict:

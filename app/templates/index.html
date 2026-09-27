@@ -60,8 +60,8 @@ async function rescan(remove){
   trackJob(await r.json(), 'rescan-result');
 }
 async function dedup(remove){
-  if(remove && !confirm('Delete every file that no track references? Referenced files are never touched.')) return;
-  const r=await fetch('/api/library/dedup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({remove})});
+  if(remove && !confirm('Delete every file that no track references (audio + lyrics/sidecars)? Referenced files and _Playlists are never touched.')) return;
+  const r=await fetch('/api/library/dedup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({remove, non_audio:remove})});
   trackJob(await r.json(), 'dedup-result');
 }
 function set(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }

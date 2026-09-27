@@ -319,6 +319,36 @@ def test_run_library_dedup_dry_run(tmp_path, monkeypatch):
     db.close()
 
 
+def test_run_library_dedup_sidecars(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    import app.config
+    from app.db.models import SyncJob
+    from app.sync.library import run_library_dedup
+    monkeypatch.setattr(app.config, "get_settings",
+                        lambda: SimpleNamespace(music_dir=str(tmp_path)))
+
+    song = tmp_path / "song.mp3"
+    song.write_bytes(os.urandom(1024))
+    lrc = tmp_path / "song.lrc"
+    lrc.write_text("[00:01] la\n")
+    playlists = tmp_path / "_Playlists"
+    playlists.mkdir()
+    (playlists / "mix.m3u").write_text("#EXTM3U\n")
+
+    TestingSession, jid = _dedup_db([("Song", str(song))])
+
+    run_library_dedup(TestingSession, jid, remove=True, non_audio=True)
+
+    assert song.exists()  # referenced audio kept
+    assert not lrc.exists()  # unreferenced sidecar removed
+    assert (playlists / "mix.m3u").exists()  # _Playlists protected
+    db = TestingSession()
+    job = db.get(SyncJob, jid)
+    assert job.status == "success" and job.tracks_downloaded == 1
+    assert "sidecars (1)" in (job.error or "")
+    db.close()
+
+
 def test_slskd_429_retried(monkeypatch):
     import app.downloaders.slskd as mod
     from app.downloaders.slskd import SlskdDownloader
