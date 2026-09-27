@@ -1,6 +1,8 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
+import os
+
 from app.config import get_settings
 
 settings = get_settings()
@@ -33,9 +35,21 @@ def get_db():
         db.close()
 
 
+def _ensure_sqlite_dir(database_url: str) -> None:
+    """Create the parent dir for file-backed sqlite DBs (fresh volumes, CI)."""
+    if not database_url.startswith("sqlite"):
+        return
+    path = database_url.split("://", 1)[1].split("?", 1)[0]
+    if path in ("", ":memory:", "memory"):
+        return
+    parent = os.path.dirname(os.path.abspath(path))
+    os.makedirs(parent, exist_ok=True)
+
+
 def init_db() -> None:
     from app.db import models  # noqa: F401  (register models)
 
+    _ensure_sqlite_dir(settings.database_url)
     Base.metadata.create_all(bind=engine)
     # lightweight forward migration for dev DBs created before a column existed
     from sqlalchemy import text
