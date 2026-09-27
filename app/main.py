@@ -61,6 +61,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="yakcheesemusic", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
+
+@app.middleware("http")
+async def no_cache_static(request, call_next):
+    """LAN UI updates must apply immediately — never cache static assets."""
+    response = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 app.include_router(playlists_api.router)
 app.include_router(tracks_api.router)
 app.include_router(sync_api.router)
