@@ -74,6 +74,33 @@ def test_parse_pathfinder_skips_episodes():
     assert _parse_item({"itemV2": {"data": {"__typename": "Episode"}}}, 0) is None
 
 
+def test_fetch_uses_canonical_url(monkeypatch):
+    import app.providers.spotify_web as web
+    seen = {}
+
+    def fake_harvest(url, pid, timeout_s=90):
+        seen["url"] = url
+        return {"headers": {"authorization": "B", "client-token": "C",
+                            "spotify-app-version": "V"},
+                "operationName": "fetchPlaylist",
+                "variables": {"uri": f"spotify:playlist:{pid}", "offset": 0,
+                              "limit": 25},
+                "extensions": {}}
+
+    def fake_page(session, headers, payload):
+        return {"data": {"playlistV2": {
+            "name": "N", "content": {"totalCount": 0, "items": []}}}}
+
+    monkeypatch.setattr(web, "_harvest", fake_harvest)
+    monkeypatch.setattr(web, "_page", fake_page)
+    pl = web.fetch_full_playlist(
+        "https://open.spotify.com/playlist/abc123?si=xyz&utm_source=copy-link",
+        "abc123")
+    assert seen["url"] == "https://open.spotify.com/playlist/abc123"
+    assert pl.url == "https://open.spotify.com/playlist/abc123"
+    assert pl.complete is True
+
+
 def _mem_db():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)

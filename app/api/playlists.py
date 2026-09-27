@@ -20,13 +20,17 @@ def list_playlists(db: Session = Depends(get_db)):
 
 @router.post("")
 def create_playlist(payload: dict, db: Session = Depends(get_db)):
-    from app.providers.spotify import SpotifyProvider
+    from app.providers.spotify import SpotifyProvider, extract_playlist_id
 
     url = payload.get("url", "")
     if not SpotifyProvider().validate_url(url):
         from fastapi import HTTPException
         raise HTTPException(status_code=400,
                             detail="Only Spotify playlist URLs are supported")
+    # store the canonical URL: share links with ?si=/pi=/pt= params get
+    # login-walled, which breaks anonymous reads (web harvest, embed)
+    pid = extract_playlist_id(url)
+    url = f"https://open.spotify.com/playlist/{pid}"
     p = Playlist(name=payload.get("name", url), provider="spotify", url=url)
     db.add(p)
     db.commit()
