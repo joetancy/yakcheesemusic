@@ -98,16 +98,28 @@ def delete_playlist(playlist_id: int, delete_files: bool = False,
 
 @router.post("/{playlist_id}/scan")
 def scan_playlist_route(playlist_id: int, db: Session = Depends(get_db)):
+    import threading
     from fastapi import HTTPException
-    from app.sync.scan import scan_playlist as do_scan
-    try:
-        return do_scan(db, playlist_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except NotImplementedError as e:
-        raise HTTPException(status_code=501, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Scan failed: {e}")
+    from sqlalchemy import select
+    from app.db.database import SessionLocal
+    from app.db.models import SyncJob
+    from app.sync.scan import run_scan_job
+    p = db.get(Playlist, playlist_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Not found")
+    running = db.execute(select(SyncJob).where(
+        SyncJob.playlist_id == playlist_id, SyncJob.status == "running",
+        SyncJob.finished_at.is_(None))).scalars().first()
+    if running:
+        raise HTTPException(status_code=409,
+                            detail=f"Sync already running (job {running.id})")
+    job = SyncJob(playlist_id=playlist_id, status="running")
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    threading.Thread(target=run_scan_job,
+                     args=(SessionLocal, playlist_id, job.id), daemon=True).start()
+    return {"ok": True, "job_id": job.id}
 
 
 @router.get("/{playlist_id}/tracks")

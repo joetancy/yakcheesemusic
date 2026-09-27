@@ -166,3 +166,48 @@ def test_review_detail_paging_counts():
             assert "Show 10 more" not in r2.text
     finally:
         _app.dependency_overrides.clear()
+
+
+def test_scan_endpoint_launches_job(seeded_client, monkeypatch):
+    import app.sync.scan as scan_mod
+    calls = []
+    monkeypatch.setattr(scan_mod, "run_scan_job",
+                        lambda sf, pid, jid: calls.append((pid, jid)))
+    pid = seeded_client.post("/api/playlists", json={
+        "url": "https://open.spotify.com/playlist/abc123",
+        "name": "ScanMe"}).json()["id"]
+    r = seeded_client.post(f"/api/playlists/{pid}/scan")
+    assert r.status_code == 200
+    assert r.json()["ok"] is True and "job_id" in r.json()
+    assert calls and calls[0][0] == pid
+    r = seeded_client.post(f"/api/playlists/{pid}/scan")
+    assert r.status_code == 409  # scan job still running
+    assert seeded_client.post("/api/playlists/9999/scan").status_code == 404
+
+
+def test_run_scan_job_records_counts(monkeypatch):
+    from sqlalchemy import create_engine as _ce
+    from sqlalchemy.orm import sessionmaker as _sm
+    from app.db.database import Base as _Base
+    from app.db.models import Playlist as _P, SyncJob as _J
+    from app.providers.base import ProviderPlaylist, ProviderTrack
+    from app.providers.spotify import SpotifyProvider
+    from app.sync.scan import run_scan_job
+    monkeypatch.setattr(SpotifyProvider, "get_playlist", lambda self, url: ProviderPlaylist(
+        provider="spotify", provider_playlist_id="abc", name="N", url="",
+        track_count=1, tracks=[ProviderTrack(
+            provider_track_id="AAA", title="T", artist="A", position=0)]))
+    e = _ce("sqlite://", connect_args={"check_same_thread": False})
+    _Base.metadata.create_all(bind=e)
+    S = _sm(bind=e, future=True)
+    db = S()
+    db.add(_P(name="", provider="spotify", url="https://open.spotify.com/playlist/abc"))
+    db.add(_J(playlist_id=1, status="running"))
+    db.commit()
+    db.close()
+    run_scan_job(S, 1, 1)
+    db = S()
+    job = db.get(_J, 1)
+    assert job.status == "success"
+    assert (job.tracks_seen, job.tracks_added) == (1, 1)
+    db.close()

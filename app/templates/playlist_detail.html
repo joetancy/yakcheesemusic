@@ -45,12 +45,13 @@ async function research(id, btn){
   btn.disabled = false;
 }
 async function scanPlaylist(id){
-  const el=document.getElementById('scan-result');el.textContent='scanning…';
+  const el=document.getElementById('scan-result');el.textContent='starting…';
   try{
     const r=await fetch('/api/playlists/'+id+'/scan',{method:'POST'});
-    const j=await r.json();
-    el.textContent=JSON.stringify(j);
-    if(r.ok) location.reload();
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){ el.textContent=JSON.stringify(j); return; }
+    el.textContent='scanning… (track list lands automatically)';
+    trackJob(j, 'scan-result', ()=>setTimeout(()=>location.reload(), 800));
   }catch(e){el.textContent='request failed: '+e;}
 }
 async function syncPlaylist(id){

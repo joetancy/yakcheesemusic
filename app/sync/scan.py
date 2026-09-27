@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Playlist, Track, PlaylistTrack
+from app.db.models import Playlist, SyncJob, Track, PlaylistTrack
 from app.providers.spotify import SpotifyProvider
 
 
@@ -77,3 +77,35 @@ def scan_playlist(db: Session, playlist_id: int) -> dict:
     db.commit()
     return {"seen": len(seen_ids), "added": added, "removed": n_removed,
             "name": playlist.name, "truncated": not remote.complete}
+
+
+def run_scan_job(session_factory, playlist_id: int, job_id: int) -> None:
+    """Background body of a manual scan (own session, thread-safe)."""
+    import logging
+    log = logging.getLogger("yakcheesemusic")
+    db = session_factory()
+    try:
+        job = db.get(SyncJob, job_id)
+        try:
+            summary = scan_playlist(db, playlist_id)
+        except Exception as e:
+            log.warning("job=%s action=scan status=error error=%s", job_id, e)
+            if job:
+                job.status = "failed"
+                job.error = str(e)[:1000]
+                job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                db.commit()
+            return
+        if job:
+            job.tracks_seen = summary["seen"]
+            job.tracks_added = summary["added"]
+            job.tracks_removed = summary["removed"]
+            job.status = "success"
+            job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            db.commit()
+        log.info("job=%s action=scan status=success seen=%s added=%s",
+                 job_id, summary["seen"], summary["added"])
+    except Exception:
+        log.exception("job=%s action=scan status=error", job_id)
+    finally:
+        db.close()
