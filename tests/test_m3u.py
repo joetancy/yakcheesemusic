@@ -60,3 +60,24 @@ def test_m3u_collision_uses_id(tmp_path):
     os.makedirs(plist)
     open(os.path.join(plist, "Korean.m3u"), "w").write("old")
     assert m3u_path(plist, p).name == f"Korean [{p.id}].m3u"
+
+
+def test_m3u_rewrites_own_file(tmp_path):
+    db = _mem_db()
+    p = _seed(db, str(tmp_path))
+    plist = str(tmp_path / "pl")
+    os.makedirs(plist)
+    open(os.path.join(plist, "Korean.m3u"), "w").write("#EXTM3U\n#PLAYLIST:Korean\n")
+    assert m3u_path(plist, p).name == "Korean.m3u"
+
+
+def test_m3u_consolidates_stale_dodge(tmp_path):
+    db = _mem_db()
+    p = _seed(db, str(tmp_path))
+    plist = str(tmp_path / "pl")
+    os.makedirs(plist)
+    open(os.path.join(plist, "Korean.m3u"), "w").write("#EXTM3U\n#PLAYLIST:Korean\n")
+    dodge = os.path.join(plist, f"Korean [{p.id}].m3u")
+    open(dodge, "w").write("#EXTM3U\n#PLAYLIST:Korean\n")
+    assert m3u_path(plist, p).name == "Korean.m3u"
+    assert not os.path.exists(dodge)

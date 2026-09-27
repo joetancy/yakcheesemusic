@@ -26,9 +26,32 @@ HEADER = "#EXTM3U"
 def m3u_path(playlist_dir: str, playlist: Playlist) -> Path:
     base = sanitize(playlist.name or f"playlist-{playlist.id}", f"playlist-{playlist.id}")
     plain = Path(playlist_dir) / f"{base}.m3u"
+    dodge = Path(playlist_dir) / f"{base} [{playlist.id}].m3u"
+    if plain.exists() and _is_ours(plain, playlist):
+        if dodge.exists() and _is_ours(dodge, playlist):
+            # stale dodge file from before the fix — consolidate to plain
+            try:
+                dodge.unlink()
+                log.info("playlist=%s removed stale %s", playlist.name, dodge)
+            except OSError:
+                pass
+        return plain
     if plain.exists():
-        return Path(playlist_dir) / f"{base} [{playlist.id}].m3u"
+        return dodge  # foreign file — don't touch it
+    if dodge.exists():
+        return dodge  # orphan dodge from an earlier run — reuse it
     return plain
+
+
+def _is_ours(path: Path, playlist: Playlist) -> bool:
+    """Our files start with #EXTM3U / #PLAYLIST:<name>."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            header = f.readline().strip()
+            second = f.readline().strip()
+    except OSError:
+        return False
+    return header == HEADER and second == f"#PLAYLIST:{playlist.name}"
 
 
 def _display(artist: str, title: str) -> str:
