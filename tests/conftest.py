@@ -1,4 +1,13 @@
 """Isolated TestClient: API tests run against in-memory SQLite, never the dev DB."""
+import os
+import tempfile
+
+# Isolate BEFORE any app import: the lifespan + module engine + music dir must
+# never touch production paths (this also makes CI work without /app or /music).
+_test_tmp = tempfile.mkdtemp(prefix="yakcheesemusic-test-")
+os.environ["DATABASE_URL"] = f"sqlite:///{_test_tmp}/test.db"
+os.environ["MUSIC_DIR"] = os.path.join(_test_tmp, "music")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
