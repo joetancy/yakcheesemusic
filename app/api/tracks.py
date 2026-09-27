@@ -44,37 +44,62 @@ def get_track(track_id: int, db: Session = Depends(get_db)):
 @router.post("/{track_id}/search")
 def search_track(track_id: int, payload: dict | None = None,
                  db: Session = Depends(get_db)):
+    import threading
     from fastapi import HTTPException
-    from app.sync.search import search_candidates, save_candidates
     t = db.get(Track, track_id)
     if not t:
         raise HTTPException(status_code=404, detail="Not found")
+    if t.status == "searching":
+        raise HTTPException(status_code=409, detail="Search already running")
     custom_query = ((payload or {}).get("query") or "").strip() or None
     t.status = "searching"
     db.commit()
+    threading.Thread(target=_run_search, args=(track_id, custom_query),
+                     daemon=True).start()
+    return {"ok": True, "status": "searching"}
+
+
+def _run_search(track_id: int, custom_query: str | None,
+                session_factory=None) -> None:
+    """Background body of a manual search (own session, thread-safe)."""
+    import logging
+    from app.db.database import SessionLocal
+    from app.sync.search import search_candidates, save_candidates
+    log = logging.getLogger("yakcheesemusic")
+    db = (session_factory or SessionLocal)()
     try:
-        from app.db.settings_store import get_thresholds
-        ranked = search_candidates(t, *get_thresholds(db), query=custom_query)
-    except Exception as e:
-        t.status = "failed"
+        t = db.get(Track, track_id)
+        if not t:
+            return
+        try:
+            from app.db.settings_store import get_thresholds
+            ranked = search_candidates(t, *get_thresholds(db), query=custom_query)
+        except Exception as e:
+            log.warning("track=%s action=search status=error error=%s", track_id, e)
+            t.status = "failed"
+            db.commit()
+            return
+        if not ranked:
+            t.status = "needs_review"
+            db.commit()
+            return
+        save_candidates(db, track_id, ranked)  # also flags rejected on ranked
+        pool = [c for c in ranked if not c.get("rejected")]
+        best = max(pool, key=lambda c: c["score"]) if pool else None
+        t.status = ("matched" if best and best["verdict"] in ("auto", "auto_if_no_competition")
+                    else "needs_review")
         db.commit()
-        raise HTTPException(status_code=502, detail=f"Search failed: {e}")
-    if not ranked:
-        t.status = "needs_review"
-        db.commit()
-        return {"candidates": [], "detail": "No search results", "status": t.status}
-    save_candidates(db, track_id, ranked)  # also flags rejected on ranked
-    pool = [c for c in ranked if not c.get("rejected")]
-    best = max(pool, key=lambda c: c["score"]) if pool else None
-    t.status = ("matched" if best and best["verdict"] in ("auto", "auto_if_no_competition")
-                else "needs_review")
-    db.commit()
-    return {"candidates": [{"title": c["title"], "artist": c["artist"],
-                            "quality": c.get("quality"), "format": c.get("format"),
-                            "score": c["score"], "verdict": c["verdict"],
-                            "rejected": bool(c.get("rejected")),
-                            "source": c.get("source_url")} for c in ranked],
-            "status": t.status}
+    except Exception:
+        log.exception("track=%s action=search status=error", track_id)
+        try:
+            t = db.get(Track, track_id)
+            if t:
+                t.status = "failed"
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()
 
 
 @router.post("/{track_id}/download")

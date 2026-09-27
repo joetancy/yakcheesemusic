@@ -16,3 +16,17 @@ async function trackJob(data, elId){
     }catch(e){ clearInterval(timer); el.textContent=`job ${id}: status unknown`; }
   },2000);
 }
+async function pollTrack(tid, el, timeoutMs){
+  const end=Date.now()+(timeoutMs||120000);
+  for(;;){
+    let r;
+    try{ r=await fetch('/api/tracks/'+tid); }
+    catch(e){ throw new Error('request failed: '+e); }
+    if(!r.ok) throw new Error('track status '+r.status);
+    const j=await r.json();
+    if(j.status!=='searching'){ if(el) el.textContent='search '+j.status; return j.status; }
+    if(el) el.textContent='searching…';
+    if(Date.now()>end) throw new Error('search timed out');
+    await new Promise(res=>setTimeout(res,2000));
+  }
+}

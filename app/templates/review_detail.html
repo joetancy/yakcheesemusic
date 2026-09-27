@@ -5,9 +5,9 @@
 <p class="muted">Album: {{ track.album or "—" }} · Status: <b>{{ track.status }}</b></p>
 <p class="muted">{{ reason }}</p>
 <p>
-<button onclick="act('search')">Search again</button>
+<button onclick="searchNow()">Search again</button>
 <input id="custom-q" placeholder="Custom Soulseek search (optional)" size="30">
-<button onclick="customSearch()">Search with custom term</button>
+<button onclick="searchNow()">Search with custom term</button>
 <button onclick="act('retry')">Retry (reset to pending)</button>
 {% if track.status == 'skipped' %}
 <button onclick="act('unskip')">Unskip (retry in sync)</button>
@@ -39,10 +39,17 @@ async function post(url, body){
   }catch(e){ el.textContent='request failed: '+e; }
 }
 function act(a){ post('/api/tracks/'+TID+'/'+a); }
-function customSearch(){
-  const q = document.getElementById('custom-q').value.trim();
-  if(!q){ act('search'); return; }
-  post('/api/tracks/'+TID+'/search', {query:q});
+async function searchNow(){
+  const el=document.getElementById('result');el.textContent='starting search…';
+  const q=document.getElementById('custom-q').value.trim();
+  try{
+    const r=await fetch('/api/tracks/'+TID+'/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(q?{query:q}:{})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){ el.textContent=JSON.stringify(j); return; }
+    el.textContent='searching… (results land automatically)';
+    await pollTrack(TID, el);
+    setTimeout(()=>location.reload(), 800);
+  }catch(e){ el.textContent='request failed: '+e; }
 }
 function useCand(id){ if(confirm('Download this candidate?')) post('/api/tracks/'+TID+'/download', {candidate_id:id}); }
 function reject(id){ post('/api/tracks/'+TID+'/reject', {candidate_id:id}); }

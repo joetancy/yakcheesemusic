@@ -30,13 +30,16 @@
 <script>
 async function research(id, btn){
   btn.disabled = true;
+  const el=document.getElementById('scan-result');el.textContent='starting search…';
   try{
     const r = await fetch('/api/tracks/'+id+'/search', {method:'POST'});
     const j = await r.json().catch(()=>({}));
-    document.getElementById('scan-result').textContent = JSON.stringify(j);
-    if(r.ok) setTimeout(()=>location.reload(), 1200);
+    if(!r.ok){ el.textContent = JSON.stringify(j); btn.disabled = false; return; }
+    el.textContent='searching… (results land automatically)';
+    await pollTrack(id, el);
+    setTimeout(()=>location.reload(), 1200);
   }catch(e){
-    document.getElementById('scan-result').textContent = 'request failed: '+e;
+    el.textContent = 'request failed: '+e;
   }
   btn.disabled = false;
 }

@@ -89,19 +89,39 @@ def test_retry_single_track(seeded_client):
 
 
 def test_search_accepts_custom_query(seeded_client, monkeypatch):
-    import app.sync.search as search_mod
+    import app.api.tracks as tracks_mod
     seen = {}
 
-    def fake_search(t, auto, conditional, review, query=None):
+    def fake_run(tid, query=None, session_factory=None):
         seen["query"] = query
-        return []
 
-    monkeypatch.setattr(search_mod, "search_candidates", fake_search)
+    monkeypatch.setattr(tracks_mod, "_run_search", fake_run)
     tid = seeded_client.get("/api/tracks", params={"status": "failed"}).json()[0]["id"]
     r = seeded_client.post(f"/api/tracks/{tid}/search", json={"query": "brent ii"})
     assert r.status_code == 200
+    assert r.json() == {"ok": True, "status": "searching"}
     assert seen["query"] == "brent ii"
-    assert r.json()["status"] == "needs_review"
+    r = seeded_client.post(f"/api/tracks/{tid}/search", json={})
+    assert r.status_code == 409  # already searching
+
+
+def test_run_search_empty_results(monkeypatch):
+    from sqlalchemy import create_engine as _ce
+    from sqlalchemy.orm import sessionmaker as _sm
+    import app.sync.search as search_mod
+    from app.api.tracks import _run_search
+    from app.db.database import Base as _Base
+    from app.db.models import Track as _T
+    monkeypatch.setattr(search_mod, "search_candidates", lambda *a, **k: [])
+    e = _ce("sqlite://", connect_args={"check_same_thread": False})
+    _Base.metadata.create_all(bind=e)
+    S = _sm(bind=e, future=True)
+    db = S()
+    db.add(_T(title="T", artist="A", status="searching"))
+    db.commit()
+    db.close()
+    _run_search(1, None, session_factory=S)
+    assert S().get(_T, 1).status == "needs_review"
 
 
 def test_review_detail_paging_counts():
