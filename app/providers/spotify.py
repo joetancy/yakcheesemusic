@@ -100,7 +100,13 @@ def _fetch_via_api(playlist_id: str) -> ProviderPlaylist:
 
 def parse_embed_json(data: dict) -> ProviderPlaylist:
     """Parse an already-decoded __NEXT_DATA__ payload from the embed page."""
-    entity = data["props"]["pageProps"]["state"]["data"]["entity"]
+    page = data["props"]["pageProps"]
+    if "state" not in page:
+        raise RuntimeError(
+            f"Spotify says '{page.get('title', 'error')}' "
+            f"(status {page.get('status', '?')}) — the playlist may be "
+            "private, deleted, or the link may be wrong")
+    entity = page["state"]["data"]["entity"]
     pid = entity.get("id", "")
     tracks = []
     for item in entity.get("trackList", []):

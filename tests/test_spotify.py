@@ -40,6 +40,13 @@ def test_parse_embed_json():
     assert pl.tracks[0].duration_ms == 212253
 
 
+def test_parse_embed_json_error_page():
+    import pytest as _pytest
+    with _pytest.raises(RuntimeError, match="private"):
+        parse_embed_json({"props": {"pageProps": {
+            "status": 404, "title": "Page not found"}}})
+
+
 def _pathfinder_item():
     return {
         "itemV2": {"__typename": "TrackResponseWrapper", "data": {
