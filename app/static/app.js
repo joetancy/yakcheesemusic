@@ -30,3 +30,28 @@ async function pollTrack(tid, el, timeoutMs){
     await new Promise(res=>setTimeout(res,2000));
   }
 }
+function makeSortable(table){
+  if(!table || !table.tHead) return;
+  const ths=[...table.tHead.rows[0].cells];
+  ths.forEach((th,i)=>{
+    th.style.cursor='pointer'; th.title='Sort';
+    th.addEventListener('click',()=>{
+      const dir=th.dataset.dir==='asc'?'desc':'asc';
+      ths.forEach(h=>{delete h.dataset.dir; h.textContent=h.textContent.replace(/ [▲▼]$/,'');});
+      th.dataset.dir=dir;
+      th.textContent+=dir==='asc'?' ▲':' ▼';
+      const num=th.dataset.sort==='num';
+      const body=table.tBodies[0];
+      const rows=[...body.rows].filter(r=>r.cells.length===ths.length);
+      const rest=[...body.rows].filter(r=>r.cells.length!==ths.length);
+      rows.sort((a,b)=>{
+        const x=a.cells[i].textContent.trim(), y=b.cells[i].textContent.trim();
+        if(num) return (parseFloat(x)||0)-(parseFloat(y)||0);
+        return x.localeCompare(y,undefined,{numeric:true,sensitivity:'base'});
+      });
+      if(dir==='desc') rows.reverse();
+      rows.forEach(r=>body.appendChild(r));
+      rest.forEach(r=>body.appendChild(r));
+    });
+  });
+}

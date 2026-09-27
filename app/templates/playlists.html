@@ -12,6 +12,7 @@
 {% for p in playlists %}<tr><td data-label="Name"><a href="/playlists/{{ p.id }}">{{ p.name or p.url }}</a></td><td data-label="Provider">{{ p.provider }}</td><td data-label="Progress">{{ progress[p.id].done }}/{{ progress[p.id].total }}</td><td data-label="Size">{{ progress[p.id].size }}</td><td data-label="Enabled">{{ p.enabled }}</td><td data-label="Sync">{{ p.sync_interval }}</td><td><button onclick="deletePlaylist({{ p.id }}, this)">Delete</button></td></tr>{% else %}<tr><td colspan="7">No playlists yet.</td></tr>{% endfor %}
 </table>
 <script>
+makeSortable(document.querySelector('table.rtable'));
 async function deletePlaylist(id, btn){
   const name = btn.closest('tr').firstElementChild.textContent.trim();
   if(!confirm('Delete playlist "' + name + '"?')) return;

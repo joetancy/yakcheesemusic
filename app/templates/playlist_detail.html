@@ -13,7 +13,7 @@
 <p class="muted">Auto-sync: {{ playlist.sync_interval }}{% if not playlist.sync_enabled %} (paused){% elif playlist.next_sync_at %} · next: {{ playlist.next_sync_at }}{% endif %}</p>
 <p>Playlist file: {% if m3u_path %}<span class="muted">{{ m3u_path }}</span>{% else %}<span class="muted">none yet</span>{% endif %}
 <button onclick="genM3u({{ playlist.id }})">Generate .m3u</button></p>
-<table class="rtable"><tr><th>#</th><th>Title</th><th>Artist</th><th>Album</th><th>Status</th><th>Source</th><th>File</th><th>Type</th><th>Quality</th><th></th></tr>
+<table class="rtable"><tr><th data-sort="num">#</th><th>Title</th><th>Artist</th><th>Album</th><th>Status</th><th>Source</th><th>File</th><th>Type</th><th>Quality</th><th></th></tr>
 {% for m in memberships %}<tr>
 <td data-label="#">{{ m.position + 1 }}</td>
 <td data-label="Title">{{ m.source_title }}</td>
@@ -28,6 +28,7 @@
 </tr>{% else %}<tr><td colspan="10">No tracks yet — hit Scan now.</td></tr>{% endfor %}
 </table>
 <script>
+makeSortable(document.querySelector('table.rtable'));
 async function research(id, btn){
   btn.disabled = true;
   const el=document.getElementById('scan-result');el.textContent='starting search…';
