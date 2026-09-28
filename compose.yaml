@@ -17,6 +17,8 @@ services:
       QOBUZ_EMAIL: ${QOBUZ_EMAIL:-}
       QOBUZ_PASSWORD: ${QOBUZ_PASSWORD:-}
       QOBUZ_QUALITY: ${QOBUZ_QUALITY:-2}
+      DEEZER_ARL: ${DEEZER_ARL:-}
+      DEEZER_QUALITY: ${DEEZER_QUALITY:-2}
     volumes:
       - ./data:/app/data
       - /srv/media/data/media/music:/music

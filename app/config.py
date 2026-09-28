@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     qobuz_quality: int = 2  # 1=320 MP3, 2=CD 16/44.1, 3=24/<=96, 4=24/>=96
     qobuz_max_per_run: int = 25
 
+    # StreamRip/Deezer second fallback (premium arl cookie).
+    deezer_arl: str = ""
+    deezer_quality: int = 2  # 0=128k, 1=320k, 2=CD 16/44.1 (paid)
+    deezer_max_per_run: int = 25
+
     # batch sync parallelism
     sync_search_workers: int = 5
     sync_download_workers: int = 3

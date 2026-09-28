@@ -8,16 +8,21 @@ log = logging.getLogger("yakcheesemusic")
 
 def _downloader_for(provider: str | None):
     """Pick the downloader backend for a candidate's provider."""
-    if (provider or "").lower() == "qobuz":
+    prov = (provider or "").lower()
+    if prov == "qobuz":
         from app.downloaders.streamrip_qobuz import QobuzDownloader
         return QobuzDownloader()
+    if prov == "deezer":
+        from app.downloaders.streamrip_deezer import DeezerDownloader
+        return DeezerDownloader()
     from app.downloaders.slskd import SlskdDownloader
     return SlskdDownloader()
 
 
 def _source_url(provider: str | None, provider_track_id: str) -> str:
-    if (provider or "").lower() == "qobuz":
-        return f"qobuz://{provider_track_id}"
+    prov = (provider or "").lower()
+    if prov in ("qobuz", "deezer"):
+        return f"{prov}://{provider_track_id}"
     return f"soulseek://{provider_track_id}"
 
 
@@ -44,8 +49,9 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
                                   duration_ms=cand.duration_ms, quality=cand.quality,
                                   format=cand.format, size=cand.size)
             try:
-                dest = f"/downloads/qobuz-{track_id}" \
-                    if (cand.provider or "").lower() == "qobuz" else "/downloads"
+                prov = (cand.provider or "").lower()
+                dest = f"/downloads/{prov}-{track_id}" \
+                    if prov in ("qobuz", "deezer") else "/downloads"
                 tmp = Path(_downloader_for(cand.provider).download(result, dest))
             except Exception as e:
                 log.warning("candidate %s failed (%s), trying next", candidate_id, e)

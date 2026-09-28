@@ -61,13 +61,17 @@ def test_track_to_result_mapping():
 def test_downloader_dispatch(monkeypatch):
     import app.downloaders.slskd as slskd_mod
     import app.downloaders.streamrip_qobuz as sq_mod
+    import app.downloaders.streamrip_deezer as dz_mod
     from app.sync.download import _downloader_for, _source_url
     monkeypatch.setattr(slskd_mod, "SlskdDownloader", lambda *a, **k: "SLSKD")
     monkeypatch.setattr(sq_mod, "QobuzDownloader", lambda *a, **k: "QOBUZ")
+    monkeypatch.setattr(dz_mod, "DeezerDownloader", lambda *a, **k: "DEEZER")
     assert _downloader_for("soulseek") == "SLSKD"
     assert _downloader_for("qobuz") == "QOBUZ"
+    assert _downloader_for("deezer") == "DEEZER"
     assert _downloader_for(None) == "SLSKD"
     assert _source_url("qobuz", "qobuz:1") == "qobuz://qobuz:1"
+    assert _source_url("deezer", "deezer:2") == "deezer://deezer:2"
     assert _source_url("soulseek", "u/f") == "soulseek://u/f"
 
 
@@ -128,3 +132,61 @@ def test_fallback_disabled_without_creds():
     factory = _mem_factory()
     assert fb.run_qobuz_fallback(factory, 1, 1) == {
         "attempted": 0, "downloaded": 0, "review": 0}
+
+
+def test_deezer_mapping_and_config(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import app.downloaders.streamrip_deezer as dz
+    assert dz.configured() is False
+    assert dz.ensure_config() is None
+    r = dz._track_to_result({"id": 7, "title": "T", "artist": {"name": "A"},
+                             "album": {"title": "B"}, "duration": 200})
+    assert (r.provider, r.provider_track_id) == ("deezer", "deezer:7")
+    assert (r.title, r.artist, r.album) == ("T", "A", "B")
+    assert r.duration_ms == 200000
+    assert dz._track_to_result({}) is None
+    monkeypatch.setattr(dz, "get_settings", lambda: SimpleNamespace(
+        deezer_arl="abc123", deezer_quality=2))
+    monkeypatch.setattr(dz, "CONFIG_PATH", str(tmp_path / "sr.toml"))
+    monkeypatch.setattr(dz, "STAGING_DIR", str(tmp_path / "st"))
+    p = dz.ensure_config()
+    assert 'arl = "abc123"' in open(p).read()
+
+
+def test_deezer_ensure_preserves_qobuz(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import app.downloaders.streamrip_deezer as dz
+    monkeypatch.setattr(dz, "get_settings", lambda: SimpleNamespace(
+        deezer_arl="abc123", deezer_quality=2))
+    monkeypatch.setattr(dz, "CONFIG_PATH", str(tmp_path / "sr.toml"))
+    monkeypatch.setattr(dz, "STAGING_DIR", str(tmp_path / "st"))
+    open(str(tmp_path / "sr.toml"), "w").write(
+        '[qobuz]\nemail_or_userid = "u@x.com"\n')
+    dz.ensure_config()
+    text = open(str(tmp_path / "sr.toml")).read()
+    assert 'email_or_userid = "u@x.com"' in text
+    assert 'arl = "abc123"' in text
+
+
+def test_deezer_fallback_attempts_exhausted(monkeypatch):
+    import app.downloaders.streamrip_deezer as dz_mod
+    import app.sync.qobuz_fallback as fb
+    monkeypatch.setattr(dz_mod, "configured", lambda: True)
+    seen = []
+
+    class FakeDD:
+        def search(self, *a, **k):
+            seen.append(a)
+            return []
+
+    monkeypatch.setattr(dz_mod, "DeezerDownloader", FakeDD)
+    factory = _mem_factory()
+    pid, ids = _seed_eligibility(factory)
+    db = factory()
+    db.add(SyncJob(playlist_id=pid, status="running"))
+    db.commit()
+    jid = db.query(SyncJob).first().id
+    db.close()
+    out = fb.run_deezer_fallback(factory, jid, pid)
+    assert out == {"attempted": 2, "downloaded": 0, "review": 0}
+    assert len(seen) == 2
