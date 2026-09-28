@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     slskd_search_timeout_s: int = 45
     slskd_download_timeout_s: int = 1800
 
+    # StreamRip/Qobuz fallback for tracks Soulseek can't supply.
+    # Disabled automatically when email/password are unset.
+    qobuz_email: str = ""
+    qobuz_password: str = ""
+    qobuz_quality: int = 2  # 1=320 MP3, 2=CD 16/44.1, 3=24/<=96, 4=24/>=96
+    qobuz_max_per_run: int = 25
+
     # batch sync parallelism
     sync_search_workers: int = 5
     sync_download_workers: int = 3

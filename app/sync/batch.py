@@ -185,6 +185,11 @@ def run_playlist_sync(session_factory, playlist_id: int, job_id: int) -> None:
             playlist = db.get(Playlist, playlist_id)
             job = db.get(SyncJob, job_id)
             playlist.last_sync_at = _now()
+            try:  # Qobuz pass for tracks Soulseek couldn't supply
+                from app.sync.qobuz_fallback import run_qobuz_fallback
+                run_qobuz_fallback(session_factory, job_id, playlist_id)
+            except Exception as e:
+                log.warning("job=%s qobuz fallback failed: %s", job_id, e)
             job.status = "success"
             job.finished_at = _now()
             db.commit()

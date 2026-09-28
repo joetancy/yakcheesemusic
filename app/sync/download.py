@@ -6,13 +6,27 @@ import logging
 log = logging.getLogger("yakcheesemusic")
 
 
+def _downloader_for(provider: str | None):
+    """Pick the downloader backend for a candidate's provider."""
+    if (provider or "").lower() == "qobuz":
+        from app.downloaders.streamrip_qobuz import QobuzDownloader
+        return QobuzDownloader()
+    from app.downloaders.slskd import SlskdDownloader
+    return SlskdDownloader()
+
+
+def _source_url(provider: str | None, provider_track_id: str) -> str:
+    if (provider or "").lower() == "qobuz":
+        return f"qobuz://{provider_track_id}"
+    return f"soulseek://{provider_track_id}"
+
+
 def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
     """Try candidates in order; first success wins. Own DB session (thread-safe)."""
     from pathlib import Path
     from app.db.database import SessionLocal
     from app.db.models import DownloadCandidate, Track
     from app.downloaders.base import SearchResult
-    from app.downloaders.slskd import SlskdDownloader
     from app.sync.library import library_path, place_file
     from app.config import get_settings
     db = SessionLocal()
@@ -30,7 +44,9 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
                                   duration_ms=cand.duration_ms, quality=cand.quality,
                                   format=cand.format, size=cand.size)
             try:
-                tmp = Path(SlskdDownloader().download(result, "/downloads"))
+                dest = f"/downloads/qobuz-{track_id}" \
+                    if (cand.provider or "").lower() == "qobuz" else "/downloads"
+                tmp = Path(_downloader_for(cand.provider).download(result, dest))
             except Exception as e:
                 log.warning("candidate %s failed (%s), trying next", candidate_id, e)
                 last_err = e
@@ -48,7 +64,8 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
                                     t.track_number))
             t.local_path = str(first)
             t.format = first.suffix.lstrip(".")
-            t.download_source_url = f"soulseek://{result.provider_track_id}"
+            t.download_provider = cand.provider or "soulseek"
+            t.download_source_url = _source_url(cand.provider, result.provider_track_id)
             # resolve the real album from the file's tags + sharer's folder,
             # then move into Artist/Album when the album is actually known
             try:

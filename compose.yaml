@@ -14,6 +14,9 @@ services:
       SLSKD_API_KEY: ${SLSKD_API_KEY:-change-me}
       SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
+      QOBUZ_EMAIL: ${QOBUZ_EMAIL:-}
+      QOBUZ_PASSWORD: ${QOBUZ_PASSWORD:-}
+      QOBUZ_QUALITY: ${QOBUZ_QUALITY:-2}
     volumes:
       - ./data:/app/data
       - /srv/media/data/media/music:/music

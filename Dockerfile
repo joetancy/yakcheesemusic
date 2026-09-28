@@ -5,6 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 TZ=Asia/Singapore
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     rsgain \
+    gcc \
+    libjpeg-dev \
+    zlib1g-dev \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
