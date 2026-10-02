@@ -8,6 +8,7 @@
 <button onclick="searchNow()">Search again</button>
 <input id="custom-q" placeholder="Custom Soulseek search (optional)" size="30">
 <button onclick="searchNow()">Search with custom term</button>
+<button onclick="searchArchive()">Search Internet Archive</button>
 <button onclick="act('retry')">Retry (reset to pending)</button>
 {% if track.status == 'skipped' %}
 <button onclick="act('unskip')">Unskip (retry in sync)</button>
@@ -47,6 +48,17 @@ async function searchNow(){
     const j=await r.json().catch(()=>({}));
     if(!r.ok){ el.textContent=JSON.stringify(j); return; }
     el.textContent='searching… (results land automatically)';
+    await pollTrack(TID, el);
+    setTimeout(()=>location.reload(), 800);
+  }catch(e){ el.textContent='request failed: '+e; }
+}
+async function searchArchive(){
+  const el=document.getElementById('result');el.textContent='starting Internet Archive search…';
+  try{
+    const r=await fetch('/api/tracks/'+TID+'/search-internet-archive',{method:'POST'});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){ el.textContent=JSON.stringify(j); return; }
+    el.textContent='searching Internet Archive…';
     await pollTrack(TID, el);
     setTimeout(()=>location.reload(), 800);
   }catch(e){ el.textContent='request failed: '+e; }

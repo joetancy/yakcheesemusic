@@ -185,7 +185,7 @@ def run_playlist_sync(session_factory, playlist_id: int, job_id: int) -> None:
             playlist = db.get(Playlist, playlist_id)
             job = db.get(SyncJob, job_id)
             playlist.last_sync_at = _now()
-            try:  # Qobuz, then Deezer, for tracks Soulseek couldn't supply
+            try:  # Streaming sources for tracks Soulseek couldn't supply
                 from app.sync.qobuz_fallback import (
                     run_deezer_fallback, run_qobuz_fallback)
                 run_qobuz_fallback(session_factory, job_id, playlist_id)

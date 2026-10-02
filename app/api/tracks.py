@@ -59,6 +59,80 @@ def search_track(track_id: int, payload: dict | None = None,
     return {"ok": True, "status": "searching"}
 
 
+@router.post("/{track_id}/search-internet-archive")
+def search_internet_archive(track_id: int, db: Session = Depends(get_db)):
+    """Manually search Archive.org and append matches for user review."""
+    import threading
+    from fastapi import HTTPException
+    t = db.get(Track, track_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Not found")
+    if t.status == "searching":
+        raise HTTPException(status_code=409, detail="Search already running")
+    t.status = "searching"
+    db.commit()
+    threading.Thread(target=_run_internet_archive_search, args=(track_id,),
+                     daemon=True).start()
+    return {"ok": True, "status": "searching"}
+
+
+def _run_internet_archive_search(track_id: int, session_factory=None) -> None:
+    """Background Archive search; append candidates and never auto-download."""
+    import logging
+    from app.db.database import SessionLocal
+    from app.db.models import DownloadCandidate
+    from app.downloaders.internet_archive import InternetArchiveDownloader
+    from app.matching.matcher import match_candidates
+
+    log = logging.getLogger("yakcheesemusic")
+    db = (session_factory or SessionLocal)()
+    try:
+        t = db.get(Track, track_id)
+        if not t:
+            return
+        results = InternetArchiveDownloader().search(
+            t.title, t.artist, t.album or "")
+        from app.db.settings_store import get_thresholds
+        auto, conditional, review = get_thresholds(db)
+        source = {"title": t.title, "artist": t.artist, "album": t.album or "",
+                  "duration_ms": t.duration_ms, "isrc": t.isrc}
+        candidates = [{"provider": r.provider, "provider_track_id": r.provider_track_id,
+                       "title": r.title, "artist": r.artist, "album": r.album,
+                       "duration_ms": r.duration_ms, "quality": r.quality,
+                       "format": r.format, "size": r.size,
+                       "source_url": r.source_url} for r in results]
+        ranked = match_candidates(source, candidates, auto, conditional, review)
+        existing = {row[0] for row in db.query(DownloadCandidate.provider_track_id).filter(
+            DownloadCandidate.track_id == track_id).all()}
+        for c in ranked:
+            if c["provider_track_id"] in existing:
+                continue
+            db.add(DownloadCandidate(
+                track_id=track_id, provider=c["provider"],
+                provider_track_id=c["provider_track_id"], title=c.get("title", ""),
+                artist=c.get("artist", ""), album=c.get("album", ""),
+                duration_ms=c.get("duration_ms"), quality=c.get("quality"),
+                format=c.get("format"), size=c.get("size"),
+                source_url=c.get("source_url"), score=c["score"]))
+        t.status = "needs_review"
+        db.commit()
+        log.info("track=%s action=internet-archive-search status=done results=%s added=%s",
+                 track_id, len(ranked), sum(c["provider_track_id"] not in existing
+                                            for c in ranked))
+    except Exception as e:
+        log.warning("track=%s action=internet-archive-search status=error error=%s",
+                    track_id, e)
+        try:
+            t = db.get(Track, track_id)
+            if t:
+                t.status = "needs_review"
+                db.commit()
+        except Exception:
+            db.rollback()
+    finally:
+        db.close()
+
+
 def _run_search(track_id: int, custom_query: str | None,
                 session_factory=None) -> None:
     """Background body of a manual search (own session, thread-safe)."""

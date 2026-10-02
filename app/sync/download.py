@@ -15,6 +15,9 @@ def _downloader_for(provider: str | None):
     if prov == "deezer":
         from app.downloaders.streamrip_deezer import DeezerDownloader
         return DeezerDownloader()
+    if prov == "internet_archive":
+        from app.downloaders.internet_archive import InternetArchiveDownloader
+        return InternetArchiveDownloader()
     from app.downloaders.slskd import SlskdDownloader
     return SlskdDownloader()
 
@@ -23,6 +26,8 @@ def _source_url(provider: str | None, provider_track_id: str) -> str:
     prov = (provider or "").lower()
     if prov in ("qobuz", "deezer"):
         return f"{prov}://{provider_track_id}"
+    if prov == "internet_archive":
+        return f"https://archive.org/details/{provider_track_id.split('|', 1)[0]}"
     return f"soulseek://{provider_track_id}"
 
 
@@ -51,7 +56,7 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
             try:
                 prov = (cand.provider or "").lower()
                 dest = f"/downloads/{prov}-{track_id}" \
-                    if prov in ("qobuz", "deezer") else "/downloads"
+                    if prov in ("qobuz", "deezer", "internet_archive") else "/downloads"
                 tmp = Path(_downloader_for(cand.provider).download(result, dest))
             except Exception as e:
                 log.warning("candidate %s failed (%s), trying next", candidate_id, e)

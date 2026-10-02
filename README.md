@@ -28,6 +28,8 @@ Volumes:
 | `QOBUZ_QUALITY` | app | 1=320 MP3, 2=CD 16/44.1 (default), 3=24/≤96kHz, 4=24/≤192kHz |
 | `DEEZER_ARL` / `DEEZER_QUALITY` | app (StreamRip 2nd fallback) | premium Deezer arl cookie; tried after Qobuz; blank disables |
 
+Internet Archive audio search is available as a manual action on each track’s review page. It does not run during sync. Results are added to the candidate list and require the same manual review as other uncertain matches. Archive items have uploader-supplied rights and metadata, so check the item’s license before using a download.
+
 Other env (see `compose.yaml`): `DATABASE_URL`, `MUSIC_DIR`, `TZ=Asia/Singapore`, `LOG_LEVEL`, `SLSKD_URL`.
 
 ## What it does
@@ -35,6 +37,7 @@ Other env (see `compose.yaml`): `DATABASE_URL`, `MUSIC_DIR`, `TZ=Asia/Singapore`
 - **Sync** — per playlist: scan the live Spotify list → Soulseek search + score every missing track → auto-download confident matches.
 - **Qobuz fallback** — tracks Soulseek can't supply (no usable candidates) get a Qobuz attempt via StreamRip at the end of each sync; confident matches download, the rest land in review with Qobuz candidates. Needs a premium Qobuz account, disabled otherwise.
 - **Deezer fallback** — same pass tries Deezer (premium arl) for whatever Qobuz couldn't supply either. Manual `Sync now` per playlist, plus an **automatic schedule** (`sync_interval`: `daily_HHMM` in Asia/Singapore, `hourly`, or `off`; sweeper runs every 5 min).
+- **Internet Archive search** — optional manual search from a track’s review page; needs no credentials.
 - **Review workflow** — low-confidence matches land on `/review` with scored candidates, paged 10 at a time. Per track: use-this / reject / undo, skip / unskip, retry, and **custom Soulseek search terms**. `Retry all` resets review + failed back to pending.
 - **Tagging** — every download is stamped with playlist-derived title/artist/album (+ track no, year, ISRC); `POST /api/library/retag` backfills the whole library.
 - **Library maintenance** (dashboard buttons, all with live job status + dry runs):
