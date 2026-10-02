@@ -28,7 +28,7 @@ Volumes:
 | `QOBUZ_QUALITY` | app | 1=320 MP3, 2=CD 16/44.1 (default), 3=24/≤96kHz, 4=24/≤192kHz |
 | `DEEZER_ARL` / `DEEZER_QUALITY` | app (StreamRip 2nd fallback) | premium Deezer arl cookie; tried after Qobuz; blank disables |
 
-Internet Archive audio search is available as a manual action on each track’s review page. It does not run during sync. Results are added to the candidate list and require the same manual review as other uncertain matches. Archive items have uploader-supplied rights and metadata, so check the item’s license before using a download.
+Internet Archive audio search is available as a manual action on each track’s review page. It does not run during sync. It replaces the current candidate list with Archive results, which require the same manual review as other uncertain matches. Archive items have uploader-supplied rights and metadata, so check the item’s license before using a download.
 
 Other env (see `compose.yaml`): `DATABASE_URL`, `MUSIC_DIR`, `TZ=Asia/Singapore`, `LOG_LEVEL`, `SLSKD_URL`.
 

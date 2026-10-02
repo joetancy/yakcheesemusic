@@ -61,7 +61,7 @@ def search_track(track_id: int, payload: dict | None = None,
 
 @router.post("/{track_id}/search-internet-archive")
 def search_internet_archive(track_id: int, db: Session = Depends(get_db)):
-    """Manually search Archive.org and append matches for user review."""
+    """Manually replace current candidates with Archive.org matches."""
     import threading
     from fastapi import HTTPException
     t = db.get(Track, track_id)
@@ -77,7 +77,7 @@ def search_internet_archive(track_id: int, db: Session = Depends(get_db)):
 
 
 def _run_internet_archive_search(track_id: int, session_factory=None) -> None:
-    """Background Archive search; append candidates and never auto-download."""
+    """Background Archive search; replace candidates and never auto-download."""
     import logging
     from app.db.database import SessionLocal
     from app.db.models import DownloadCandidate
@@ -102,27 +102,30 @@ def _run_internet_archive_search(track_id: int, session_factory=None) -> None:
                        "format": r.format, "size": r.size,
                        "source_url": r.source_url} for r in results]
         ranked = match_candidates(source, candidates, auto, conditional, review)
-        existing = {row[0] for row in db.query(DownloadCandidate.provider_track_id).filter(
-            DownloadCandidate.track_id == track_id).all()}
+        previously_rejected = {row.provider_track_id: row.rejected_reason
+                               for row in db.query(DownloadCandidate).filter(
+                                   DownloadCandidate.track_id == track_id,
+                                   DownloadCandidate.rejected_reason.is_not(None)).all()}
+        db.query(DownloadCandidate).filter(
+            DownloadCandidate.track_id == track_id).delete(synchronize_session=False)
         for c in ranked:
-            if c["provider_track_id"] in existing:
-                continue
             db.add(DownloadCandidate(
                 track_id=track_id, provider=c["provider"],
                 provider_track_id=c["provider_track_id"], title=c.get("title", ""),
                 artist=c.get("artist", ""), album=c.get("album", ""),
                 duration_ms=c.get("duration_ms"), quality=c.get("quality"),
                 format=c.get("format"), size=c.get("size"),
-                source_url=c.get("source_url"), score=c["score"]))
+                source_url=c.get("source_url"), score=c["score"],
+                rejected_reason=previously_rejected.get(c["provider_track_id"])))
         t.status = "needs_review"
         db.commit()
-        log.info("track=%s action=internet-archive-search status=done results=%s added=%s",
-                 track_id, len(ranked), sum(c["provider_track_id"] not in existing
-                                            for c in ranked))
+        log.info("track=%s action=internet-archive-search status=done results=%s",
+                 track_id, len(ranked))
     except Exception as e:
         log.warning("track=%s action=internet-archive-search status=error error=%s",
                     track_id, e)
         try:
+            db.rollback()
             t = db.get(Track, track_id)
             if t:
                 t.status = "needs_review"
