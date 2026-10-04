@@ -9,3 +9,53 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{padding:10px 12px;bo
 form#add-playlist{display:flex;gap:9px;align-items:center;margin:20px 0 8px}form#add-playlist input:first-child{flex:1;min-width:200px}#add-result,#result,#scan-result,#settings-result,#format-result{color:var(--muted-foreground);font-size:13px}.main-shell main>p:has(button){display:flex;flex-wrap:wrap;align-items:center;gap:8px}.main-shell main>p:has(button) button{margin:0}.main-shell main>p:has(button) span{flex-basis:100%}.main-shell main>table.rtable{margin-top:19px}.main-shell main>details+details{margin-top:14px}.main-shell main>details:first-of-type{margin-top:20px}.main-shell main>table.rtable td:empty{width:1px}.main-shell main>table.rtable tr:last-child td[colspan]{padding:22px;color:var(--muted-foreground);text-align:center}.main-shell main>form{padding:17px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card)}label{color:var(--muted-foreground);font-size:13px;font-weight:500}label input{display:block;margin-top:6px;color:var(--foreground)}
 @media(max-width:1000px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.sidebar{width:220px}.main-shell{margin-left:220px}.rtable{font-size:12px}th,td{padding:9px}}
 @media(max-width:700px){.sidebar{position:sticky;top:0;width:auto;height:auto;display:block;padding:10px 12px;border-right:0;border-bottom:1px solid var(--border)}.brand{display:none}.sidebar .nav-label,.sidebar-bottom{display:none}.side-nav{display:flex;gap:4px;overflow-x:auto}.side-nav a{flex:1;justify-content:center;gap:6px;padding:8px 9px;white-space:nowrap;font-size:12px}.nav-icon{width:auto}.main-shell{margin:0}.topbar{height:48px;padding:0 17px}.main-shell main{min-height:calc(100vh - 140px);padding:24px 16px 38px}h1{font-size:23px}.cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:18px 0 23px}.card{padding:13px}.num{font-size:23px}.cols{grid-template-columns:1fr;gap:10px}h2{margin-top:25px}form#add-playlist{align-items:stretch;flex-direction:column}form#add-playlist input{width:100%;max-width:none}.main-shell main>p:has(button) button{width:auto}.main-shell main>p:has(button) span{flex-basis:100%}.rtable{display:block;overflow:visible;border:0;border-radius:0}.rtable thead{display:none}.rtable tr:first-child:has(th){display:none}.rtable tbody{display:grid;gap:9px}.rtable tr{display:block;padding:5px 0;border:1px solid var(--border);border-radius:9px;background:var(--card)}.rtable td{display:flex;align-items:flex-start;gap:10px;width:100%;padding:6px 10px;border:0;overflow-wrap:anywhere}.rtable td:before{content:attr(data-label);flex:0 0 76px;padding-top:2px;color:var(--muted-foreground);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.rtable td:not([data-label]):before{display:none}.rtable td:empty{display:none}.rtable td button{width:auto;display:inline-flex}.rtable td[colspan]{justify-content:center}.rtable td[colspan]:before{display:none}details>table,details>.rtable{width:calc(100% - 24px);margin:0 12px 12px}details> :not(summary){margin-left:12px;margin-right:12px}summary{min-height:47px;padding:0 13px}details p{font-size:13px}.main-shell main>details{margin-left:0;margin-right:0}.app-footer{padding:13px 16px}}
+
+/* Action hierarchy: solid buttons mark the next step, outline buttons are supporting actions. */
+button{min-height:40px;border-radius:7px;padding:0 15px;font-weight:600;white-space:normal;line-height:1.25}
+button.button-outline{border-color:var(--border);background:var(--background);color:var(--foreground)}
+button.button-outline:hover{background:var(--accent);opacity:1}
+button.button-destructive{border-color:#dc2626;background:#dc2626;color:#fff}
+button.button-destructive:hover{border-color:#b91c1c;background:#b91c1c;opacity:1}
+button.button-subtle{border-color:color-mix(in srgb,var(--danger) 25%,var(--border));background:transparent;color:var(--danger)}
+button.button-subtle:hover{background:color-mix(in srgb,var(--danger) 8%,transparent);opacity:1}
+button[onclick*="delete"].button-subtle{border-color:color-mix(in srgb,var(--danger) 25%,var(--border));background:transparent;color:var(--danger)}
+.action-row,.button-group{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.action-row{margin:15px 0 8px;padding:4px 0}
+.action-feedback{display:block;min-height:20px;margin:4px 0 12px;font-size:12px}
+.library-actions{display:grid;gap:10px;margin-top:0;margin-bottom:17px}
+.action-card{display:grid;grid-template-columns:minmax(160px,1fr) auto minmax(120px,220px);align-items:center;gap:14px;padding:13px 14px;border:1px solid var(--border);border-radius:8px}
+.action-card>div:first-child{display:grid;gap:2px}.action-card strong,.file-action strong{font-size:13px;font-weight:650}.action-card>div:first-child span{color:var(--muted-foreground);font-size:12px}
+.action-result{min-width:0;font-size:12px}
+.review-actions{display:grid;gap:9px;margin:18px 0 20px;padding:14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card)}
+.review-actions .action-row{margin:0}.custom-search{display:flex;gap:8px;max-width:650px}.custom-search input{flex:1;min-width:150px}.review-actions .action-feedback{margin:0}
+.file-action{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:16px 0;padding:13px 15px;border:1px solid var(--border);border-radius:8px}.file-action>div{display:grid;gap:3px;min-width:0}.file-action .muted{overflow-wrap:anywhere;font-size:12px}
+.format-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0 16px}.format-actions .action-feedback{flex-basis:100%}
+form#add-playlist button{white-space:nowrap}
+.rtable td .button-group{gap:6px}.rtable td .button-group button{min-height:32px;padding:0 10px}
+@media(max-width:700px){
+  button{min-height:44px;padding:0 12px}
+  .action-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+  .action-row>button{width:100%;min-width:0;padding:0 8px;font-size:13px}
+  .action-row .action-feedback{grid-column:1/-1}
+  .library-actions{gap:9px}
+  .action-card{grid-template-columns:minmax(0,1fr) auto;gap:8px 10px;padding:12px}
+  .action-card>div:first-child{grid-column:1/-1}
+  .action-card>.button-group{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}
+  .action-card>.button-group button{width:100%;padding:0 7px;font-size:12px}
+  .action-card>button{grid-column:1/-1;width:100%}
+  .action-card .action-result{grid-column:1/-1}
+  .review-actions{padding:11px;gap:9px}
+  .review-actions .action-row{grid-template-columns:1fr 1fr}
+  .review-actions .action-row>button:first-child{grid-column:1/-1}
+  .custom-search{display:grid;grid-template-columns:1fr;width:100%}
+  .custom-search input,.custom-search button{width:100%;max-width:none}
+  .file-action{align-items:stretch;flex-direction:column}
+  .file-action button{width:100%}
+  .format-actions{display:grid;grid-template-columns:1fr 1fr}
+  .format-actions select,.format-actions .action-feedback{grid-column:1/-1;width:100%;max-width:none}
+  .format-actions button{width:100%;padding:0 8px;font-size:12px}
+  form#add-playlist button{width:100%}
+  .rtable td .button-group{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rtable td .button-group button{width:100%;padding:0 6px}
+  .rtable td .button-group i{grid-column:1/-1}
+}

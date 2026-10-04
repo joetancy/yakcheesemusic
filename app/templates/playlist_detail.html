@@ -4,16 +4,15 @@
 {% block content %}
 <h1>{{ playlist.name }}</h1>
 <p class="muted">{{ playlist.provider }} · <a href="{{ playlist.url }}">{{ playlist.url }}</a></p>
-<p>
-<button onclick="scanPlaylist({{ playlist.id }})">Scan now</button>
-<button onclick="syncPlaylist({{ playlist.id }})">Sync now</button>
-<button onclick="deletePlaylist({{ playlist.id }}, this)">Delete</button>
-<span id="scan-result" class="muted"></span>
-</p>
+<div class="action-row playlist-actions">
+<button onclick="syncPlaylist({{ playlist.id }})">Sync playlist</button>
+<button class="button-outline" onclick="scanPlaylist({{ playlist.id }})">Scan for changes</button>
+<button class="button-destructive button-subtle" onclick="deletePlaylist({{ playlist.id }}, this)">Delete playlist</button>
+</div>
+<p id="scan-result" class="action-feedback muted"></p>
 <p class="muted">Last scan: {{ playlist.last_scan_at or "never" }} · Last sync: {{ playlist.last_sync_at or "never" }} · Size: {{ total_size }} in {{ total_files }} files</p>
 <p class="muted">Auto-sync: {{ playlist.sync_interval }}{% if not playlist.sync_enabled %} (paused){% elif playlist.next_sync_at %} · next: {{ playlist.next_sync_at }}{% endif %}</p>
-<p>Playlist file: {% if m3u_path %}<span class="muted">{{ m3u_path }}</span>{% else %}<span class="muted">none yet</span>{% endif %}
-<button onclick="genM3u({{ playlist.id }})">Generate .m3u</button></p>
+<div class="file-action"><div><strong>Playlist file</strong><span class="muted">{% if m3u_path %}{{ m3u_path }}{% else %}No playlist file generated yet{% endif %}</span></div><button class="button-outline" onclick="genM3u({{ playlist.id }})">Generate .m3u</button></div>
 <table class="rtable"><tr><th data-sort="num">#</th><th>Title</th><th>Artist</th><th>Album</th><th>Status</th><th>Source</th><th>File</th><th>Type</th><th>Quality</th><th></th></tr>
 {% for m in memberships %}<tr>
 <td data-label="#">{{ m.position + 1 }}</td>

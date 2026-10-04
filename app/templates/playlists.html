@@ -6,11 +6,11 @@
 <form id="add-playlist" method="post" action="/api/playlists" onsubmit="return addPlaylist(event)">
 <input name="url" id="playlist-url" placeholder="Paste Spotify playlist URL" size="60" required>
 <input name="name" id="playlist-name" placeholder="Name (optional)" size="24">
-<button type="submit">Add</button>
+<button type="submit">Add playlist</button>
 </form>
 <p id="add-result"></p>
 <table class="rtable"><tr><th>Name</th><th>Provider</th><th>Progress</th><th>Size</th><th>Enabled</th><th>Sync</th><th></th></tr>
-{% for p in playlists %}<tr><td data-label="Name"><a href="/playlists/{{ p.id }}">{{ p.name or p.url }}</a></td><td data-label="Provider">{{ p.provider }}</td><td data-label="Progress">{{ progress[p.id].done }}/{{ progress[p.id].total }}</td><td data-label="Size">{{ progress[p.id].size }}</td><td data-label="Enabled">{{ p.enabled }}</td><td data-label="Sync">{{ p.sync_interval }}</td><td><button onclick="deletePlaylist({{ p.id }}, this)">Delete</button></td></tr>{% else %}<tr><td colspan="7">No playlists yet.</td></tr>{% endfor %}
+{% for p in playlists %}<tr><td data-label="Name"><a href="/playlists/{{ p.id }}">{{ p.name or p.url }}</a></td><td data-label="Provider">{{ p.provider }}</td><td data-label="Progress">{{ progress[p.id].done }}/{{ progress[p.id].total }}</td><td data-label="Size">{{ progress[p.id].size }}</td><td data-label="Enabled">{{ p.enabled }}</td><td data-label="Sync">{{ p.sync_interval }}</td><td><button class="button-destructive button-subtle" onclick="deletePlaylist({{ p.id }}, this)">Delete</button></td></tr>{% else %}<tr><td colspan="7">No playlists yet.</td></tr>{% endfor %}
 </table>
 <script>
 makeSortable(document.querySelector('table.rtable'));

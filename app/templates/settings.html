@@ -16,13 +16,13 @@ Score ≥ review → needs review, else rejected.</p>
 </details>
 <details open data-remember="set-format"><summary>Download format</summary>
 <p class="muted">Original keeps source files as-is. MP3 transcodes lossless downloads to 320kbps (source deleted after a verified convert). Applies to new downloads; use the button below for existing files.</p>
-<p><select id="preferred_format">
+<div class="format-actions"><select id="preferred_format">
 <option value="original" {% if preferred_format == "original" %}selected{% endif %}>Original (keep FLAC etc.)</option>
 <option value="mp3" {% if preferred_format == "mp3" %}selected{% endif %}>MP3 320kbps</option>
 </select>
-<button onclick="saveFormat()">Save format</button>
-<button onclick="convertExisting()">Convert existing FLACs to MP3</button>
-<span id="format-result" class="muted"></span></p>
+<button class="button-outline" onclick="saveFormat()">Save format</button>
+<button class="button-outline" onclick="convertExisting()">Convert existing FLACs</button>
+<span id="format-result" class="action-feedback muted"></span></div>
 </details>
 <details open data-remember="set-install"><summary>Installation</summary>
 <table class="rtable">

@@ -35,14 +35,11 @@
 </details>
 
 <details open data-remember="dash-library"><summary>Library</summary>
-<p><button onclick="rgSweep()">Apply ReplayGain −14 LUFS to all files (overwrite tags)</button>
-<span id="rg-result" class="muted"></span></p>
-<p><button onclick="rescan(true)">Rescan library — remove unplayable files</button>
-<button onclick="rescan(false)">Dry run (report only)</button>
-<span id="rescan-result" class="muted"></span></p>
-<p><button onclick="dedup(true)">Remove duplicate/orphan files</button>
-<button onclick="dedup(false)">Dry run (report only)</button>
-<span id="dedup-result" class="muted"></span></p>
+<div class="library-actions">
+<div class="action-card"><div><strong>ReplayGain</strong><span>Normalize loudness across your library.</span></div><button class="button-outline" onclick="rgSweep()">Apply ReplayGain</button><span id="rg-result" class="action-result muted"></span></div>
+<div class="action-card"><div><strong>Check files</strong><span>Find unplayable files and queue replacements.</span></div><div class="button-group"><button class="button-destructive" onclick="rescan(true)">Rescan &amp; remove</button><button class="button-outline" onclick="rescan(false)">Preview</button></div><span id="rescan-result" class="action-result muted"></span></div>
+<div class="action-card"><div><strong>Find duplicates</strong><span>Identify duplicate or orphaned files.</span></div><div class="button-group"><button class="button-destructive" onclick="dedup(true)">Remove files</button><button class="button-outline" onclick="dedup(false)">Preview</button></div><span id="dedup-result" class="action-result muted"></span></div>
+</div>
 </details>
 
 <details open data-remember="dash-jobs"><summary>Sync jobs</summary>

@@ -3,7 +3,7 @@
 {% block section %}Review queue{% endblock %}
 {% block content %}
 <h1>Needs review / Failed / Skipped</h1>
-<p><button onclick="retryAll()">Retry all (clear review &amp; failed)</button> <span id="result" class="muted"></span></p>
+<div class="action-row"><button class="button-outline" onclick="retryAll()">Retry all failed and review tracks</button><span id="result" class="action-feedback muted"></span></div>
 <table class="rtable"><tr><th>Title</th><th>Artist</th><th>Status</th><th></th></tr>
 {% for t in tracks %}<tr><td data-label="Title">{{ t.title }}</td><td data-label="Artist">{{ t.artist }}</td><td data-label="Status">{{ t.status }}</td><td><a href="/review/{{ t.id }}">Review</a></td></tr>{% else %}<tr><td colspan="4">Nothing to review.</td></tr>{% endfor %}
 </table>

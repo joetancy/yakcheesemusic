@@ -5,27 +5,20 @@
 <h1>{{ track.title }} — {{ track.artist }}</h1>
 <p class="muted">Album: {{ track.album or "—" }} · Status: <b>{{ track.status }}</b></p>
 <p class="muted">{{ reason }}</p>
-<p>
-<button onclick="searchNow()">Search again</button>
-<input id="custom-q" placeholder="Custom Soulseek search (optional)" size="30">
-<button onclick="searchNow()">Search with custom term</button>
-<button onclick="searchArchive()">Search Internet Archive (replace results)</button>
-<button onclick="act('retry')">Retry (reset to pending)</button>
-{% if track.status == 'skipped' %}
-<button onclick="act('unskip')">Unskip (retry in sync)</button>
-{% else %}
-<button onclick="act('skip')">Skip (ignore in sync)</button>
-{% endif %}
-<span id="result" class="muted"></span>
-</p>
+<div class="review-actions">
+<div class="action-row"><button onclick="searchNow()">Search again</button><button class="button-outline" onclick="searchArchive()">Search Internet Archive</button><button class="button-outline" onclick="act('retry')">Reset to pending</button></div>
+<div class="custom-search"><input id="custom-q" placeholder="Custom Soulseek search term"><button class="button-outline" onclick="searchNow()">Search custom term</button></div>
+<div class="action-row secondary-actions">{% if track.status == 'skipped' %}<button class="button-outline" onclick="act('unskip')">Unskip track</button>{% else %}<button class="button-outline" onclick="act('skip')">Skip track</button>{% endif %}</div>
+<span id="result" class="action-feedback muted"></span>
+</div>
 <h2>Candidates (showing {{ shown_usable }} of {{ total_usable }} usable, {{ total_candidates - total_usable }} rejected)</h2>
 <table class="rtable"><tr><th>Score</th><th>Verdict</th><th>Quality</th><th>Title</th><th>Artist</th><th>Source file</th><th></th></tr>
 {% for c in candidates %}<tr{% if c.rejected %} style="opacity:.45"{% endif %}>
 <td data-label="Score">{{ "%.1f"|format(c.score or 0) }}</td><td data-label="Verdict">{{ c.verdict or "—" }}</td>
 <td data-label="Quality">{{ c.quality or "—" }}</td><td data-label="Title">{{ c.title }}</td><td data-label="Artist">{{ c.artist }}</td>
 <td data-label="Source file"><span title="{{ c.source }}">{{ (c.source or "")[-70:] }}</span></td>
-<td>{% if c.rejected %}<i>rejected</i> <button onclick="unreject({{ c.id }})">undo</button>
-{% else %}<button onclick="useCand({{ c.id }})">Use this</button> <button onclick="reject({{ c.id }})">Reject</button>{% endif %}</td>
+<td><div class="button-group">{% if c.rejected %}<i>rejected</i> <button class="button-outline" onclick="unreject({{ c.id }})">Undo</button>
+{% else %}<button onclick="useCand({{ c.id }})">Use this</button> <button class="button-outline" onclick="reject({{ c.id }})">Reject</button>{% endif %}</div></td>
 </tr>{% else %}<tr><td colspan="7">No candidates yet — hit Search again.</td></tr>{% endfor %}
 </table>
 {% if shown_usable < total_usable %}<p><a href="/review/{{ track.id }}?shown={{ shown_usable + 10 }}"><button>Show 10 more ({{ total_usable - shown_usable }} remaining)</button></a></p>{% endif %}
