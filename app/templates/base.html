@@ -8,12 +8,24 @@
 <script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t;else if(matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.dataset.theme='dark';}catch(e){}</script>
 </head>
 <body>
-<header><nav>
-<a href="/">Dashboard</a><a href="/playlists">Playlists</a><a href="/review">Review</a><a href="/settings">Settings</a>
-<span class="muted">yakcheesemusic</span>
-<button id="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">◐</button>
-</nav></header>
-<main>{% block content %}{% endblock %}</main>
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="yakcheesemusic home"><span class="brand-mark">♪</span><span>yakcheesemusic</span></a>
+    <div class="nav-label">Workspace</div>
+    <nav class="side-nav" aria-label="Main navigation">
+      <a href="/" class="{% if request.url.path == '/' %}active{% endif %}"><span class="nav-icon">⌂</span>Dashboard</a>
+      <a href="/playlists" class="{% if request.url.path.startswith('/playlists') %}active{% endif %}"><span class="nav-icon">♫</span>Playlists</a>
+      <a href="/review" class="{% if request.url.path.startswith('/review') %}active{% endif %}"><span class="nav-icon">◷</span>Review queue</a>
+      <a href="/settings" class="{% if request.url.path.startswith('/settings') %}active{% endif %}"><span class="nav-icon">⚙</span>Settings</a>
+    </nav>
+    <div class="sidebar-bottom"><span class="status-indicator"></span><span>Library sync workspace</span></div>
+  </aside>
+  <div class="main-shell">
+    <header class="topbar"><div class="breadcrumb">Music library <span>/</span> <strong>{% block section %}Overview{% endblock %}</strong></div><button id="theme-toggle" class="icon-button" onclick="toggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode">◐</button></header>
+    <main>{% block content %}{% endblock %}</main>
+    <footer class="app-footer">yakcheesemusic <span>·</span> Self-hosted playlist sync</footer>
+  </div>
+</div>
 <script src="/static/app.js"></script>
 </body>
 </html>

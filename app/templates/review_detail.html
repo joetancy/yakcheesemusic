@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Review {{ track.title }} - yakcheesemusic{% endblock %}
+{% block section %}Track review{% endblock %}
 {% block content %}
 <h1>{{ track.title }} — {{ track.artist }}</h1>
 <p class="muted">Album: {{ track.album or "—" }} · Status: <b>{{ track.status }}</b></p>

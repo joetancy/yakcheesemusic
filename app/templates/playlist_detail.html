@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ playlist.name }} - yakcheesemusic{% endblock %}
+{% block section %}Playlist details{% endblock %}
 {% block content %}
 <h1>{{ playlist.name }}</h1>
 <p class="muted">{{ playlist.provider }} · <a href="{{ playlist.url }}">{{ playlist.url }}</a></p>
