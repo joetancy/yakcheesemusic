@@ -24,7 +24,7 @@
 <td data-label="File">{% if m.track and m.track.local_path %}<span title="{{ m.track.local_path }}">{{ m.track.local_path }}</span>{% else %}—{% endif %}</td>
 <td data-label="Type">{{ m.track.format.upper() if m.track and m.track.format else "—" }}</td>
 <td data-label="Quality">{{ m.track.quality_label if m.track and m.track.quality_label else "—" }}</td>
-<td><div class="button-group">{% if m.track %}<button class="button-outline" onclick="research({{ m.track.id }}, this)">Search again</button>{% if m.active and m.track.local_path %}<button class="button-destructive button-subtle" onclick="deleteTrackFile({{ playlist.id }}, {{ m.track.id }}, this)">Delete file</button>{% endif %}{% endif %}</div></td>
+<td><div class="button-group">{% if m.track %}<button class="button-outline" onclick="research({{ m.track.id }}, this)">Search for review</button>{% if m.active and m.track.local_path %}<button class="button-destructive button-subtle" onclick="deleteTrackFile({{ playlist.id }}, {{ m.track.id }}, this)">Delete file</button>{% endif %}{% endif %}</div></td>
 </tr>{% else %}<tr><td colspan="10">No tracks yet — hit Scan now.</td></tr>{% endfor %}
 </table>
 <script>
@@ -33,12 +33,12 @@ async function research(id, btn){
   btn.disabled = true;
   const el=document.getElementById('scan-result');el.textContent='starting search…';
   try{
-    const r = await fetch('/api/tracks/'+id+'/search', {method:'POST'});
+    const r = await fetch('/api/tracks/'+id+'/search', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({manual_review:true})});
     const j = await r.json().catch(()=>({}));
     if(!r.ok){ el.textContent = JSON.stringify(j); btn.disabled = false; return; }
-    el.textContent='searching… (results land automatically)';
+    el.textContent='searching… (results will be sent to review)';
     await pollTrack(id, el);
-    setTimeout(()=>location.reload(), 1200);
+    location.href='/review/'+id;
   }catch(e){
     el.textContent = 'request failed: '+e;
   }

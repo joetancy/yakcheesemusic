@@ -52,10 +52,12 @@ def search_track(track_id: int, payload: dict | None = None,
     if t.status == "searching":
         raise HTTPException(status_code=409, detail="Search already running")
     custom_query = ((payload or {}).get("query") or "").strip() or None
+    force_review = (payload or {}).get("manual_review") is True
     t.status = "searching"
     db.commit()
-    threading.Thread(target=_run_search, args=(track_id, custom_query),
-                     daemon=True).start()
+    args = (track_id, custom_query, None, True) if force_review else (
+        track_id, custom_query)
+    threading.Thread(target=_run_search, args=args, daemon=True).start()
     return {"ok": True, "status": "searching"}
 
 
@@ -137,7 +139,7 @@ def _run_internet_archive_search(track_id: int, session_factory=None) -> None:
 
 
 def _run_search(track_id: int, custom_query: str | None,
-                session_factory=None) -> None:
+                session_factory=None, force_review: bool = False) -> None:
     """Background body of a manual search (own session, thread-safe)."""
     import logging
     from app.db.database import SessionLocal
@@ -163,8 +165,11 @@ def _run_search(track_id: int, custom_query: str | None,
         save_candidates(db, track_id, ranked)  # also flags rejected on ranked
         pool = [c for c in ranked if not c.get("rejected")]
         best = max(pool, key=lambda c: c["score"]) if pool else None
-        t.status = ("matched" if best and best["verdict"] in ("auto", "auto_if_no_competition")
-                    else "needs_review")
+        if force_review:
+            t.status = "needs_review"
+        else:
+            t.status = ("matched" if best and best["verdict"] in
+                        ("auto", "auto_if_no_competition") else "needs_review")
         db.commit()
     except Exception:
         log.exception("track=%s action=search status=error", track_id)
