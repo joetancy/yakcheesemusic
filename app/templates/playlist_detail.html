@@ -24,7 +24,7 @@
 <td data-label="File">{% if m.track and m.track.local_path %}<span title="{{ m.track.local_path }}">{{ m.track.local_path }}</span>{% else %}—{% endif %}</td>
 <td data-label="Type">{{ m.track.format.upper() if m.track and m.track.format else "—" }}</td>
 <td data-label="Quality">{{ m.track.quality_label if m.track and m.track.quality_label else "—" }}</td>
-<td>{% if m.track %}<button onclick="research({{ m.track.id }}, this)">Search again</button>{% endif %}</td>
+<td><div class="button-group">{% if m.track %}<button class="button-outline" onclick="research({{ m.track.id }}, this)">Search again</button>{% if m.active and m.track.local_path %}<button class="button-destructive button-subtle" onclick="deleteTrackFile({{ playlist.id }}, {{ m.track.id }}, this)">Delete file</button>{% endif %}{% endif %}</div></td>
 </tr>{% else %}<tr><td colspan="10">No tracks yet — hit Scan now.</td></tr>{% endfor %}
 </table>
 <script>
@@ -43,6 +43,19 @@ async function research(id, btn){
     el.textContent = 'request failed: '+e;
   }
   btn.disabled = false;
+}
+async function deleteTrackFile(playlistId, trackId, btn){
+  const title = btn.closest('tr').querySelector('[data-label="Title"]')?.textContent.trim() || 'this track';
+  if(!confirm(`Delete the downloaded file for “${title}”? The track will return to pending and can be downloaded again on the next sync.`)) return;
+  const el=document.getElementById('scan-result');
+  btn.disabled=true;btn.textContent='Deleting…';el.textContent='deleting downloaded file…';
+  try{
+    const r=await fetch(`/api/playlists/${playlistId}/tracks/${trackId}/file`,{method:'DELETE'});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){el.textContent=j.detail||JSON.stringify(j);btn.disabled=false;btn.textContent='Delete file';return;}
+    el.textContent='File deleted; track queued for the next sync.';
+    setTimeout(()=>location.reload(),800);
+  }catch(e){el.textContent='request failed: '+e;btn.disabled=false;btn.textContent='Delete file';}
 }
 async function scanPlaylist(id){
   const el=document.getElementById('scan-result');el.textContent='starting…';

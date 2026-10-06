@@ -100,6 +100,72 @@ def delete_playlist(playlist_id: int, delete_files: bool = False,
     return {"ok": True, "deleted_files": len(deleted_files), "kept_files": kept_files}
 
 
+@router.delete("/{playlist_id}/tracks/{track_id}/file")
+def delete_playlist_track_file(playlist_id: int, track_id: int,
+                               db: Session = Depends(get_db)):
+    """Remove one downloaded file from a playlist and queue the track again."""
+    import os
+    from fastapi import HTTPException
+    from sqlalchemy import select
+    from app.config import get_settings
+    from app.db.models import PlaylistTrack, Track
+    from app.sync.prune import (delete_track_file, path_shared,
+                                track_in_use_elsewhere)
+
+    p = db.get(Playlist, playlist_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    membership = db.execute(select(PlaylistTrack).where(
+        PlaylistTrack.playlist_id == playlist_id,
+        PlaylistTrack.track_id == track_id,
+        PlaylistTrack.active.is_(True))).scalars().first()
+    if not membership:
+        raise HTTPException(status_code=404,
+                            detail="Track is not active in this playlist")
+    track = db.get(Track, track_id)
+    if not track or not track.local_path:
+        raise HTTPException(status_code=404, detail="Downloaded file not found")
+
+    settings = get_settings()
+    music_dir = os.path.realpath(settings.music_dir)
+    stored_path = os.path.abspath(os.path.normpath(track.local_path))
+    local_path = os.path.realpath(track.local_path)
+    try:
+        inside_library = (
+            os.path.commonpath((music_dir, stored_path)) == music_dir
+            and os.path.commonpath((music_dir, local_path)) == music_dir
+        )
+    except ValueError:
+        inside_library = False
+    if not inside_library or stored_path == music_dir or local_path == music_dir:
+        raise HTTPException(status_code=400,
+                            detail="File path is outside the music library")
+
+    if track_in_use_elsewhere(db, track.id, playlist_id) or path_shared(
+            db, track.local_path, track.id):
+        raise HTTPException(status_code=409,
+                            detail="File is still used by another playlist or track")
+
+    if os.path.exists(track.local_path):
+        deleted = delete_track_file(db, track, playlist_id, music_dir)
+        if not deleted:
+            raise HTTPException(status_code=500,
+                                detail="Could not delete the downloaded file")
+
+    track.local_path = None
+    track.status = "pending"
+    track.format = None
+    track.bitrate = None
+    track.sample_rate = None
+    track.bit_depth = None
+    track.download_provider = None
+    track.download_source_url = None
+    for candidate in track.candidates:
+        candidate.selected = False
+    db.commit()
+    return {"ok": True, "status": "pending"}
+
+
 @router.post("/{playlist_id}/scan")
 def scan_playlist_route(playlist_id: int, db: Session = Depends(get_db)):
     import threading
