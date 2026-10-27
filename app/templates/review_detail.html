@@ -5,60 +5,55 @@
 <h1>{{ track.title }} — {{ track.artist }}</h1>
 <p class="muted">Album: {{ track.album or "—" }} · Status: <b>{{ track.status }}</b></p>
 <p class="muted">{{ reason }}</p>
-<div class="review-actions">
-<div class="action-row"><button onclick="searchNow()">Search again</button><button class="button-outline" onclick="searchArchive()">Search Internet Archive</button><button class="button-outline" onclick="act('retry')">Reset to pending</button></div>
-<div class="custom-search"><input id="custom-q" placeholder="Custom Soulseek search term"><button class="button-outline" onclick="searchNow()">Search custom term</button></div>
-<div class="action-row secondary-actions">{% if track.status == 'skipped' %}<button class="button-outline" onclick="act('unskip')">Unskip track</button>{% else %}<button class="button-outline" onclick="act('skip')">Skip track</button>{% endif %}</div>
-<span id="result" class="action-feedback muted"></span>
-</div>
+<section class="card review-actions">
+<header><h2>Search and review actions</h2><p>Find alternate versions or update this track’s status.</p></header>
+<div class="action-row"><button class="btn" onclick="searchNow(this)">Search again</button><button class="btn" data-variant="outline" onclick="searchArchive(this)">Search Internet Archive</button><button class="btn" data-variant="outline" onclick="act('retry',this)">Reset to pending</button></div>
+<form class="custom-search" onsubmit="event.preventDefault();searchNow(this.querySelector('[type=submit]'))"><div role="group" class="field"><label for="custom-q">Custom Soulseek search</label><input class="input" id="custom-q" placeholder="Enter a title or artist"></div><button class="btn" data-variant="outline" type="submit">Search custom term</button></form>
+<div class="action-row secondary-actions">{% if track.status == 'skipped' %}<button class="btn" data-variant="outline" onclick="act('unskip',this)">Unskip track</button>{% else %}<button class="btn" data-variant="outline" onclick="act('skip',this)">Skip track</button>{% endif %}</div>
+<span id="result" class="action-feedback muted" role="status" aria-live="polite"></span>
+</section>
 <h2>Candidates (showing {{ shown_usable }} of {{ total_usable }} usable, {{ total_candidates - total_usable }} rejected)</h2>
-<table class="rtable"><tr><th>Score</th><th>Verdict</th><th>Quality</th><th>Title</th><th>Artist</th><th>Source file</th><th></th></tr>
+<div class="table-container"><table class="table rtable"><thead><tr><th>Score</th><th>Verdict</th><th>Quality</th><th>Title</th><th>Artist</th><th>Source file</th><th>Actions</th></tr></thead><tbody>
 {% for c in candidates %}<tr{% if c.rejected %} style="opacity:.45"{% endif %}>
 <td data-label="Score">{{ "%.1f"|format(c.score or 0) }}</td><td data-label="Verdict">{{ c.verdict or "—" }}</td>
 <td data-label="Quality">{{ c.quality or "—" }}</td><td data-label="Title">{{ c.title }}</td><td data-label="Artist">{{ c.artist }}</td>
 <td data-label="Source file"><span title="{{ c.source }}">{{ (c.source or "")[-70:] }}</span></td>
-<td><div class="button-group">{% if c.rejected %}<i>rejected</i> <button class="button-outline" onclick="unreject({{ c.id }})">Undo</button>
-{% else %}<button onclick="useCand({{ c.id }})">Use this</button> <button class="button-outline" onclick="reject({{ c.id }})">Reject</button>{% endif %}</div></td>
+<td data-label="Actions"><div class="button-group">{% if c.rejected %}<span class="badge" data-variant="destructive">Rejected</span> <button class="btn" data-variant="outline" data-size="sm" onclick="unreject({{ c.id }},this)">Undo</button>
+{% else %}<button class="btn" data-size="sm" onclick="useCand({{ c.id }},this)">Use this</button> <button class="btn" data-variant="outline" data-size="sm" onclick="reject({{ c.id }},this)">Reject</button>{% endif %}</div></td>
 </tr>{% else %}<tr><td colspan="7">No candidates yet — hit Search again.</td></tr>{% endfor %}
-</table>
-{% if shown_usable < total_usable %}<p><a href="/review/{{ track.id }}?shown={{ shown_usable + 10 }}"><button>Show 10 more ({{ total_usable - shown_usable }} remaining)</button></a></p>{% endif %}
+</tbody></table></div>
+{% if shown_usable < total_usable %}<p><a class="btn" href="/review/{{ track.id }}?shown={{ shown_usable + 10 }}">Show 10 more ({{ total_usable - shown_usable }} remaining)</a></p>{% endif %}
 <script>
 const TID = {{ track.id }};
-async function post(url, body){
-  const el=document.getElementById('result');el.textContent='working…';
+async function post(url, body, button){
+  const el=document.getElementById('result');setFeedback(el,'Updating track…','loading');setBusy(button,true,'Working…');
   try{
-    const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: body?JSON.stringify(body):null});
-    const j = await r.json().catch(()=>({}));
-    el.textContent = JSON.stringify(j);
-    if(r.ok) setTimeout(()=>location.reload(), 800);
-  }catch(e){ el.textContent='request failed: '+e; }
+    await readResponse(await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: body?JSON.stringify(body):null}));
+    setFeedback(el,'Track updated. Refreshing…','success');setTimeout(()=>location.reload(),500);
+  }catch(e){setFeedback(el,`Could not update track: ${e.message}`,'error');setBusy(button,false);}
 }
-function act(a){ post('/api/tracks/'+TID+'/'+a); }
-async function searchNow(){
-  const el=document.getElementById('result');el.textContent='starting search…';
+function act(a,button){ post('/api/tracks/'+TID+'/'+a,null,button); }
+async function searchNow(button){
+  const el=document.getElementById('result');setFeedback(el,'Starting search…','loading');setBusy(button,true,'Searching…');
   const q=document.getElementById('custom-q').value.trim();
   try{
-    const r=await fetch('/api/tracks/'+TID+'/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(q?{query:q}:{})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok){ el.textContent=JSON.stringify(j); return; }
-    el.textContent='searching… (results land automatically)';
+    const j=await readResponse(await fetch('/api/tracks/'+TID+'/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(q?{query:q}:{})}));
+    setFeedback(el,'Searching… results will appear here when ready.','loading');
     await pollTrack(TID, el);
-    setTimeout(()=>location.reload(), 800);
-  }catch(e){ el.textContent='request failed: '+e; }
+    setFeedback(el,'Search finished. Refreshing candidates…','success');setTimeout(()=>location.reload(),500);
+  }catch(e){setFeedback(el,`Search could not finish: ${e.message}`,'error');setBusy(button,false);}
 }
-async function searchArchive(){
-  const el=document.getElementById('result');el.textContent='starting Internet Archive search…';
+async function searchArchive(button){
+  const el=document.getElementById('result');setFeedback(el,'Starting Internet Archive search…','loading');setBusy(button,true,'Searching…');
   try{
-    const r=await fetch('/api/tracks/'+TID+'/search-internet-archive',{method:'POST'});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok){ el.textContent=JSON.stringify(j); return; }
-    el.textContent='searching Internet Archive…';
+    await readResponse(await fetch('/api/tracks/'+TID+'/search-internet-archive',{method:'POST'}));
+    setFeedback(el,'Searching Internet Archive… results will appear when ready.','loading');
     await pollTrack(TID, el);
-    setTimeout(()=>location.reload(), 800);
-  }catch(e){ el.textContent='request failed: '+e; }
+    setFeedback(el,'Search finished. Refreshing candidates…','success');setTimeout(()=>location.reload(),500);
+  }catch(e){setFeedback(el,`Search could not finish: ${e.message}`,'error');setBusy(button,false);}
 }
-function useCand(id){ if(confirm('Download this candidate?')) post('/api/tracks/'+TID+'/download', {candidate_id:id}); }
-function reject(id){ post('/api/tracks/'+TID+'/reject', {candidate_id:id}); }
-function unreject(id){ post('/api/tracks/'+TID+'/unreject', {candidate_id:id}); }
+function useCand(id,button){ if(confirm('Download this candidate?')) post('/api/tracks/'+TID+'/download', {candidate_id:id},button); }
+function reject(id,button){ post('/api/tracks/'+TID+'/reject', {candidate_id:id},button); }
+function unreject(id,button){ post('/api/tracks/'+TID+'/unreject', {candidate_id:id},button); }
 </script>
 {% endblock %}

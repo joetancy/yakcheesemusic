@@ -3,20 +3,19 @@
 {% block section %}Review queue{% endblock %}
 {% block content %}
 <h1>Needs review / Failed / Skipped</h1>
-<div class="action-row"><button class="button-outline" onclick="retryAll()">Retry all failed and review tracks</button><span id="result" class="action-feedback muted"></span></div>
-<table class="rtable"><tr><th>Title</th><th>Artist</th><th>Status</th><th></th></tr>
+<div class="action-row"><button class="btn" data-variant="outline" onclick="retryAll(this)">Retry all failed and review tracks</button><span id="result" class="action-feedback muted" role="status" aria-live="polite"></span></div>
+<table class="table rtable"><thead><tr><th>Title</th><th>Artist</th><th>Status</th><th>Actions</th></tr></thead><tbody>
 {% for t in tracks %}<tr><td data-label="Title">{{ t.title }}</td><td data-label="Artist">{{ t.artist }}</td><td data-label="Status">{{ t.status }}</td><td><a href="/review/{{ t.id }}">Review</a></td></tr>{% else %}<tr><td colspan="4">Nothing to review.</td></tr>{% endfor %}
-</table>
+</tbody></table>
 <script>
-async function retryAll(){
+async function retryAll(button){
   if(!confirm('Reset all needs_review + failed tracks to pending?')) return;
-  const el=document.getElementById('result');el.textContent='resetting…';
+  const el=document.getElementById('result');setFeedback(el,'Resetting failed and review tracks…','loading');setBusy(button,true,'Resetting…');
   try{
-    const r = await fetch('/api/tracks/retry-all', {method:'POST'});
-    const j = await r.json().catch(()=>({}));
-    el.textContent = JSON.stringify(j);
-    if(r.ok) setTimeout(()=>location.reload(), 800);
-  }catch(e){ el.textContent='request failed: '+e; }
+    await readResponse(await fetch('/api/tracks/retry-all', {method:'POST'}));
+    setFeedback(el,'Tracks reset to pending. Refreshing the queue…','success');
+    setTimeout(()=>location.reload(), 500);
+  }catch(e){setFeedback(el,`Could not reset tracks: ${e.message}`,'error');setBusy(button,false);}
 }
 </script>
 {% endblock %}

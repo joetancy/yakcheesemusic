@@ -3,36 +3,39 @@
 {% block section %}Playlists{% endblock %}
 {% block content %}
 <h1>Playlists</h1>
-<form id="add-playlist" method="post" action="/api/playlists" onsubmit="return addPlaylist(event)">
-<input name="url" id="playlist-url" placeholder="Paste Spotify playlist URL" size="60" required>
-<input name="name" id="playlist-name" placeholder="Name (optional)" size="24">
-<button type="submit">Add playlist</button>
+<form id="add-playlist" class="card" method="post" action="/api/playlists" onsubmit="return addPlaylist(event)">
+<div role="group" class="field"><label for="playlist-url">Spotify playlist URL</label><input class="input" name="url" id="playlist-url" placeholder="Paste a Spotify playlist URL" required></div>
+<div role="group" class="field"><label for="playlist-name">Name <span class="muted">(optional)</span></label><input class="input" name="name" id="playlist-name" placeholder="Custom name"></div>
+<button class="btn" type="submit">Add playlist</button>
 </form>
-<p id="add-result"></p>
-<input id="playlist-search" type="search" placeholder="Search playlists by title…" aria-label="Search playlists by title" style="margin: 0.5rem 0; max-width: 24rem">
-<table class="rtable"><tr><th>Name</th><th>Provider</th><th>Progress</th><th>Size</th><th>Enabled</th><th>Sync</th><th></th></tr>
-{% for p in playlists %}<tr data-href="/playlists/{{ p.id }}" tabindex="0" role="link" aria-label="Open playlist {{ p.name or p.url }}"><td data-label="Name"><a href="/playlists/{{ p.id }}">{{ p.name or p.url }}</a></td><td data-label="Provider">{{ p.provider }}</td><td data-label="Progress">{{ progress[p.id].done }}/{{ progress[p.id].total }}</td><td data-label="Size">{{ progress[p.id].size }}</td><td data-label="Enabled">{{ p.enabled }}</td><td data-label="Sync">{{ p.sync_interval }}</td><td><button class="button-destructive button-subtle" onclick="deletePlaylist({{ p.id }}, this)">Delete</button></td></tr>{% else %}<tr><td colspan="7">No playlists yet.</td></tr>{% endfor %}
+<p id="add-result" class="status-message" role="status" aria-live="polite"></p>
+<div class="toolbar"><div role="group" class="field search-field"><label for="playlist-search">Find a playlist</label><input class="input" id="playlist-search" type="search" placeholder="Search by title…" aria-label="Search playlists by title"></div></div>
+<p id="playlist-search-empty" class="empty-state" hidden>No playlists match that title. Try a different search.</p>
+<p id="playlist-delete-result" class="status-message" role="status" aria-live="polite"></p>
+<table class="table rtable"><thead><tr><th>Name</th><th>Provider</th><th>Progress</th><th>Size</th><th>Enabled</th><th>Sync</th><th>Actions</th></tr></thead><tbody>
+{% for p in playlists %}<tr data-href="/playlists/{{ p.id }}" tabindex="0" role="group" aria-label="Playlist card: {{ p.name or p.url }}. Press Enter to open."><td data-label="Name"><a href="/playlists/{{ p.id }}">{{ p.name or p.url }}</a></td><td data-label="Provider"><span class="badge" data-variant="secondary">{{ p.provider }}</span></td><td data-label="Progress">{{ progress[p.id].done }}/{{ progress[p.id].total }}</td><td data-label="Size">{{ progress[p.id].size }}</td><td data-label="Enabled">{{ "Yes" if p.enabled else "No" }}</td><td data-label="Sync">{{ p.sync_interval }}</td><td data-label="Actions"><button class="btn" data-variant="destructive" data-size="sm" onclick="deletePlaylist({{ p.id }}, this)">Delete</button></td></tr>{% else %}<tr><td colspan="7">No playlists yet.</td></tr>{% endfor %}
+</tbody>
 </table>
 <script>
 makeSortable(document.querySelector('table.rtable'));
 document.getElementById('playlist-search').addEventListener('input', function(){
   const query = this.value.trim().toLocaleLowerCase();
-  document.querySelectorAll('table.rtable tr').forEach((row, index) => {
-    if(index === 0 || row.cells.length < 2) return;
-    row.hidden = !row.cells[0].textContent.toLocaleLowerCase().includes(query);
-  });
+  const rows=[...document.querySelectorAll('table.rtable tbody tr[data-href]')];
+  rows.forEach(row=>{row.hidden=!row.cells[0].textContent.toLocaleLowerCase().includes(query);});
+  document.getElementById('playlist-search-empty').hidden=!query||!rows.length||rows.some(row=>!row.hidden);
 });
 async function deletePlaylist(id, btn){
   const name = btn.closest('tr').firstElementChild.textContent.trim();
   if(!confirm('Delete playlist "' + name + '"?')) return;
   const withFiles = confirm('Also delete its downloaded files from disk?\n\nOK = delete files too (files used by other playlists are kept)\nCancel = keep files');
-  btn.disabled=true;btn.textContent='Deleting…';
+  const status=document.getElementById('playlist-delete-result');
+  setFeedback(status,`Deleting “${name}”…`,'loading');setBusy(btn,true,'Deleting…');
   try{
-    const r = await fetch('/api/playlists/' + id + (withFiles ? '?delete_files=true' : ''), {method: 'DELETE'});
-    const j = await r.json();
-    if(r.ok){ location.reload(); }
-    else { alert('Delete failed: ' + JSON.stringify(j)); btn.disabled=false;btn.textContent='Delete'; }
-  }catch(e){ alert('Request failed: ' + e); btn.disabled=false;btn.textContent='Delete'; }
+    const j=await readResponse(await fetch('/api/playlists/' + id + (withFiles ? '?delete_files=true' : ''), {method: 'DELETE'}));
+    setFeedback(status,`Deleted “${name}”.`,'success');
+    if(j.kept_files) setFeedback(status,`Deleted “${name}”; kept ${j.kept_files} file(s) still used elsewhere.`,'success');
+    setTimeout(()=>location.reload(),500);
+  }catch(e){setFeedback(status,`Could not delete “${name}”: ${e.message}`,'error');setBusy(btn,false);}
 }
 </script>
 {% endblock %}

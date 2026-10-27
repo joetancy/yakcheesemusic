@@ -5,21 +5,21 @@
 <h1>{{ playlist.name }}</h1>
 <p class="muted">{{ playlist.provider }} · <a href="{{ playlist.url }}">{{ playlist.url }}</a></p>
 <div class="action-row playlist-actions">
-<button onclick="syncPlaylist({{ playlist.id }})">Sync playlist</button>
-<button class="button-outline" onclick="scanPlaylist({{ playlist.id }})">Scan for changes</button>
-<button class="button-destructive button-subtle" onclick="deletePlaylist({{ playlist.id }}, this)">Delete playlist</button>
+<button class="btn" onclick="syncPlaylist({{ playlist.id }},this)">Sync playlist</button>
+<button class="btn" data-variant="outline" onclick="scanPlaylist({{ playlist.id }},this)">Scan for changes</button>
+<button class="btn" data-variant="destructive" onclick="deletePlaylist({{ playlist.id }}, this)">Delete playlist</button>
 </div>
-<p id="scan-result" class="action-feedback muted"></p>
+<p id="scan-result" class="action-feedback muted" role="status" aria-live="polite"></p>
 <p class="muted">Last scan: {{ playlist.last_scan_at or "never" }} · Last sync: {{ playlist.last_sync_at or "never" }} · Size: {{ total_size }} in {{ total_files }} files</p>
 <p class="muted">Auto-sync: {{ playlist.sync_interval }}{% if not playlist.sync_enabled %} (paused){% elif playlist.next_sync_at %} · next: {{ playlist.next_sync_at }}{% endif %}</p>
-<div class="file-action"><div><strong>Playlist file</strong><span class="muted">{% if m3u_path %}{{ m3u_path }}{% else %}No playlist file generated yet{% endif %}</span></div><button class="button-outline" onclick="genM3u({{ playlist.id }})">Generate .m3u</button></div>
-<form method="get" action="/playlists/{{ playlist.id }}" role="search" style="display:flex;gap:.5rem;align-items:center;margin:1rem 0">
-<input type="search" name="q" value="{{ search_query }}" placeholder="Search tracks by title…" aria-label="Search tracks by title">
-<button type="submit">Search</button>
+<section class="card file-action"><header><strong>Playlist file</strong><p class="muted">{% if m3u_path %}{{ m3u_path }}{% else %}No playlist file generated yet{% endif %}</p></header><button class="btn" data-variant="outline" onclick="genM3u({{ playlist.id }},this)">Generate .m3u</button></section>
+<form class="toolbar" method="get" action="/playlists/{{ playlist.id }}" role="search">
+<div role="group" class="field search-field"><label for="track-search">Find a track</label><input class="input" id="track-search" type="search" name="q" value="{{ search_query }}" placeholder="Search by title…" aria-label="Search tracks by title"></div>
+<button class="btn" type="submit">Search</button>
 {% if search_query %}<a href="/playlists/{{ playlist.id }}">Clear</a>{% endif %}
 </form>
 <p class="muted">{{ total_tracks }} track{% if total_tracks != 1 %}s{% endif %}{% if page_count > 1 %} · Page {{ page }} of {{ page_count }}{% endif %}</p>
-<table class="rtable"><tr><th data-sort="num">#</th><th>Title</th><th>Artist</th><th>Album</th><th>Status</th><th>Source</th><th>File</th><th>Type</th><th>Quality</th><th></th></tr>
+<div class="table-container"><table class="table rtable"><thead><tr><th data-sort="num">#</th><th>Title</th><th>Artist</th><th>Album</th><th>Status</th><th>Source</th><th>File</th><th>Type</th><th>Quality</th><th>Actions</th></tr></thead><tbody>
 {% for m in memberships %}<tr>
 <td data-label="#">{{ m.position + 1 }}</td>
 <td data-label="Title">{{ m.source_title }}</td>
@@ -30,13 +30,13 @@
 <td data-label="File">{% if m.track and m.track.local_path %}<span title="{{ m.track.local_path }}">{{ m.track.local_path }}</span>{% else %}—{% endif %}</td>
 <td data-label="Type">{{ m.track.format.upper() if m.track and m.track.format else "—" }}</td>
 <td data-label="Quality">{{ m.track.quality_label if m.track and m.track.quality_label else "—" }}</td>
-<td><div class="button-group">{% if m.track %}<button class="button-outline" onclick="research({{ m.track.id }}, this)">Search for review</button>{% if m.active and m.track.local_path %}<button class="button-destructive button-subtle" onclick="deleteTrackFile({{ playlist.id }}, {{ m.track.id }}, this)">Delete file</button>{% endif %}{% endif %}</div></td>
+<td data-label="Actions"><div class="button-group">{% if m.track %}<button class="btn" data-variant="outline" data-size="sm" onclick="research({{ m.track.id }}, this)">Search for review</button>{% if m.active and m.track.local_path %}<button class="btn" data-variant="destructive" data-size="sm" onclick="deleteTrackFile({{ playlist.id }}, {{ m.track.id }}, this)">Delete file</button>{% endif %}{% endif %}</div></td>
 </tr>{% else %}<tr><td colspan="10">{% if search_query %}No tracks match “{{ search_query }}”.{% else %}No tracks yet — hit Scan now.{% endif %}</td></tr>{% endfor %}
-</table>
-{% if page_count > 1 %}<nav aria-label="Playlist track pages" style="display:flex;gap:1rem;align-items:center;margin:1rem 0">
-{% if page > 1 %}<a href="/playlists/{{ playlist.id }}?page={{ page - 1 }}&amp;q={{ search_query|urlencode }}">Previous</a>{% endif %}
-<span>Page {{ page }} of {{ page_count }}</span>
-{% if page < page_count %}<a href="/playlists/{{ playlist.id }}?page={{ page + 1 }}&amp;q={{ search_query|urlencode }}">Next</a>{% endif %}
+</tbody></table></div>
+{% if page_count > 1 %}<nav class="track-pagination" role="navigation" aria-label="Playlist track pages">
+{% if page > 1 %}<a class="btn" data-variant="ghost" href="/playlists/{{ playlist.id }}?page={{ page - 1 }}&amp;q={{ search_query|urlencode }}">Previous</a>{% else %}<span class="btn" data-variant="ghost" aria-disabled="true">Previous</span>{% endif %}
+<span aria-current="page">Page {{ page }} of {{ page_count }}</span>
+{% if page < page_count %}<a class="btn" data-variant="ghost" href="/playlists/{{ playlist.id }}?page={{ page + 1 }}&amp;q={{ search_query|urlencode }}">Next</a>{% else %}<span class="btn" data-variant="ghost" aria-disabled="true">Next</span>{% endif %}
 </nav>{% endif %}
 <script>
 makeSortable(document.querySelector('table.rtable'));
@@ -44,69 +44,56 @@ async function research(id, btn){
   btn.disabled = true;
   const el=document.getElementById('scan-result');el.textContent='starting search…';
   try{
-    const r = await fetch('/api/tracks/'+id+'/search', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({manual_review:true})});
-    const j = await r.json().catch(()=>({}));
-    if(!r.ok){ el.textContent = JSON.stringify(j); btn.disabled = false; return; }
-    el.textContent='searching… (results will be sent to review)';
+    await readResponse(await fetch('/api/tracks/'+id+'/search', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({manual_review:true})}));
+    setFeedback(el,'Searching… results will be sent to the review queue.','loading');
     await pollTrack(id, el);
     location.href='/review/'+id;
   }catch(e){
-    el.textContent = 'request failed: '+e;
+    setFeedback(el,`Search could not finish: ${e.message}`,'error');
+    btn.disabled = false;
   }
-  btn.disabled = false;
 }
 async function deleteTrackFile(playlistId, trackId, btn){
   const title = btn.closest('tr').querySelector('[data-label="Title"]')?.textContent.trim() || 'this track';
   if(!confirm(`Delete the downloaded file for “${title}”? The track will return to pending and can be downloaded again on the next sync.`)) return;
-  const el=document.getElementById('scan-result');
-  btn.disabled=true;btn.textContent='Deleting…';el.textContent='deleting downloaded file…';
+  const el=document.getElementById('scan-result');setFeedback(el,'Deleting downloaded file…','loading');setBusy(btn,true,'Deleting…');
   try{
-    const r=await fetch(`/api/playlists/${playlistId}/tracks/${trackId}/file`,{method:'DELETE'});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok){el.textContent=j.detail||JSON.stringify(j);btn.disabled=false;btn.textContent='Delete file';return;}
-    el.textContent='File deleted; track queued for the next sync.';
+    await readResponse(await fetch(`/api/playlists/${playlistId}/tracks/${trackId}/file`,{method:'DELETE'}));
+    setFeedback(el,'File deleted. The track is queued for the next sync.','success');
     setTimeout(()=>location.reload(),800);
-  }catch(e){el.textContent='request failed: '+e;btn.disabled=false;btn.textContent='Delete file';}
+  }catch(e){setFeedback(el,`Could not delete file: ${e.message}`,'error');setBusy(btn,false);}
 }
-async function scanPlaylist(id){
-  const el=document.getElementById('scan-result');el.textContent='starting…';
+async function scanPlaylist(id,button){
+  const el=document.getElementById('scan-result');setFeedback(el,'Starting playlist scan…','loading');setBusy(button,true,'Starting scan…');
   try{
-    const r=await fetch('/api/playlists/'+id+'/scan',{method:'POST'});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok){ el.textContent=JSON.stringify(j); return; }
-    el.textContent='scanning… (track list lands automatically)';
-    trackJob(j, 'scan-result', ()=>setTimeout(()=>location.reload(), 800));
-  }catch(e){el.textContent='request failed: '+e;}
+    const j=await readResponse(await fetch('/api/playlists/'+id+'/scan',{method:'POST'}));
+    trackJob(j, 'scan-result', ()=>setTimeout(()=>location.reload(), 800),button);
+  }catch(e){setFeedback(el,`Could not start scan: ${e.message}`,'error');setBusy(button,false);}
 }
-async function syncPlaylist(id){
+async function syncPlaylist(id,button){
   if(!confirm('Sync this playlist? Missing tracks with confident matches will download automatically.')) return;
-  const el=document.getElementById('scan-result');el.textContent='starting…';
+  const el=document.getElementById('scan-result');setFeedback(el,'Starting playlist sync…','loading');setBusy(button,true,'Starting sync…');
   try{
-    const r=await fetch('/api/playlists/'+id+'/sync',{method:'POST'});
-    trackJob(await r.json(), 'scan-result');
-  }catch(e){el.textContent='request failed: '+e;}
+    const j=await readResponse(await fetch('/api/playlists/'+id+'/sync',{method:'POST'}));
+    trackJob(j, 'scan-result',null,button);
+  }catch(e){setFeedback(el,`Could not start sync: ${e.message}`,'error');setBusy(button,false);}
 }
-async function genM3u(id){
-  const el=document.getElementById('scan-result');el.textContent='generating…';
+async function genM3u(id,button){
+  const el=document.getElementById('scan-result');setFeedback(el,'Generating playlist file…','loading');setBusy(button,true,'Generating…');
   try{
-    const r=await fetch('/api/playlists/'+id+'/m3u',{method:'POST'});
-    const j=await r.json();
-    el.textContent=JSON.stringify(j);
-    if(r.ok) location.reload();
-  }catch(e){el.textContent='request failed: '+e;}
+    await readResponse(await fetch('/api/playlists/'+id+'/m3u',{method:'POST'}));
+    setFeedback(el,'Playlist file generated. Refreshing…','success');location.reload();
+  }catch(e){setFeedback(el,`Could not generate playlist file: ${e.message}`,'error');setBusy(button,false);}
 }
 async function deletePlaylist(id, btn){
   if(!confirm('Delete this playlist?')) return;
   const withFiles = confirm('Also delete its downloaded files from disk?\n\nOK = delete files too (files used by other playlists are kept)\nCancel = keep files');
   const el=document.getElementById('scan-result');
-  if(btn){btn.disabled=true;btn.textContent='Deleting…';}
-  el.textContent='deleting…';
+  setFeedback(el,'Deleting playlist…','loading');setBusy(btn,true,'Deleting…');
   try{
-    const r=await fetch('/api/playlists/'+id+(withFiles?'?delete_files=true':''),{method:'DELETE'});
-    const j=await r.json();
-    if(r.ok) location.href='/playlists';
-    else { el.textContent='Delete failed: '+JSON.stringify(j); if(btn){btn.disabled=false;btn.textContent='Delete';} }
-  }catch(e){ el.textContent='request failed: '+e; if(btn){btn.disabled=false;btn.textContent='Delete';} }
+    await readResponse(await fetch('/api/playlists/'+id+(withFiles?'?delete_files=true':''),{method:'DELETE'}));
+    setFeedback(el,'Playlist deleted. Returning to playlists…','success');location.href='/playlists';
+  }catch(e){setFeedback(el,`Could not delete playlist: ${e.message}`,'error');setBusy(btn,false);}
 }
 </script>
 {% endblock %}

@@ -4,12 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}yakcheesemusic{% endblock %}</title>
+<link rel="stylesheet" href="/static/vendor/basecoat-maia.min.css">
 <link rel="stylesheet" href="/static/style.css">
-<script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t;else if(matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.dataset.theme='dark';}catch(e){}</script>
+<script>try{var t=localStorage.getItem('theme');var dark=t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches;if(dark)document.documentElement.classList.add('dark');document.documentElement.dataset.theme=dark?'dark':'light';}catch(e){}</script>
+<script src="/static/app.js"></script>
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to main content</a>
 <div class="app-shell">
-  <aside class="sidebar">
+  <aside class="app-sidebar">
     <a class="brand" href="/" aria-label="yakcheesemusic home"><span class="brand-mark"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#brand-music"></use></svg></span><span>yakcheesemusic</span></a>
     <div class="nav-label">Workspace</div>
     <nav class="side-nav" aria-label="Main navigation">
@@ -21,11 +24,10 @@
     <div class="sidebar-bottom"><span class="status-indicator"></span><span>Library sync workspace</span></div>
   </aside>
   <div class="main-shell">
-    <header class="topbar"><div class="breadcrumb">Music library <span>/</span> <strong>{% block section %}Overview{% endblock %}</strong></div><button id="theme-toggle" class="icon-button" onclick="toggleTheme()" title="Switch theme" aria-label="Switch theme"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#moon"></use></svg></button></header>
-    <main>{% block content %}{% endblock %}</main>
+    <header class="topbar"><nav class="breadcrumb" aria-label="Breadcrumb"><ol><li><a href="/">Music library</a></li><li aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-right"></use></svg></li><li><span aria-current="page">{% block section %}Overview{% endblock %}</span></li></ol></nav><button id="theme-toggle" class="btn" data-variant="outline" data-size="icon" onclick="toggleTheme()" title="Switch theme" aria-label="Switch theme"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#moon"></use></svg></button></header>
+    <main class="page-content" id="main-content">{% block content %}{% endblock %}</main>
     <footer class="app-footer">yakcheesemusic <span>·</span> Self-hosted playlist sync</footer>
   </div>
 </div>
-<script src="/static/app.js"></script>
 </body>
 </html>
