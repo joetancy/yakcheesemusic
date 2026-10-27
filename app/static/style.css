@@ -148,12 +148,12 @@ details > table { width: calc(100% - 2rem); margin-bottom: 1rem; }
   #add-playlist .btn { width: 100%; }
   .toolbar { align-items: stretch; flex-direction: column; }
   .toolbar .search-field { width: 100%; }
-  .rtable { display: block; overflow: visible; border: 0; }
+  .rtable { display: block; width: 100%; min-width: 0; overflow: visible; border: 0; }
   .table-container { overflow: visible; }
   .rtable thead { display: none; }
-  .rtable tbody { display: grid; gap: .55rem; }
-  .rtable tbody tr { display: block; padding: .4rem 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
-  .rtable tbody tr td { display: flex; width: 100%; align-items: flex-start; gap: .6rem; padding: .4rem .65rem; border: 0; overflow-wrap: anywhere; }
+  .rtable tbody { display: grid; width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr); gap: .55rem; }
+  .rtable tbody tr { display: block; width: 100%; min-width: 0; padding: .4rem 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+  .rtable tbody tr td { display: flex; width: 100%; min-width: 0; align-items: flex-start; gap: .6rem; padding: .4rem .65rem; border: 0; overflow-wrap: anywhere; }
   .rtable tbody tr td::before { content: attr(data-label); flex: 0 0 5rem; padding-top: .1rem; color: var(--muted-foreground); font-size: .65rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
   .rtable tbody tr td:not([data-label])::before { display: none; }
   .rtable tbody tr td:empty { display: none; }
