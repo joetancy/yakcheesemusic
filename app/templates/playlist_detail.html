@@ -30,7 +30,7 @@
 <td data-label="File">{% if m.track and m.track.local_path %}<span title="{{ m.track.local_path }}">{{ m.track.local_path }}</span>{% else %}—{% endif %}</td>
 <td data-label="Type">{{ m.track.format.upper() if m.track and m.track.format else "—" }}</td>
 <td data-label="Quality">{{ m.track.quality_label if m.track and m.track.quality_label else "—" }}</td>
-<td data-label="Actions"><div class="button-group">{% if m.track %}<button class="btn" data-variant="outline" data-size="sm" onclick="research({{ m.track.id }}, this)">Search for review</button>{% if m.active and m.track.local_path %}<button class="btn" data-variant="destructive" data-size="sm" onclick="deleteTrackFile({{ playlist.id }}, {{ m.track.id }}, this)">Delete file</button>{% endif %}{% endif %}</div></td>
+<td data-label="Actions"><div class="action-buttons">{% if m.track %}<button class="btn" data-variant="outline" data-size="sm" onclick="research({{ m.track.id }}, this)">Search for review</button>{% if m.active and m.track.local_path %}<button class="btn" data-variant="destructive" data-size="sm" onclick="deleteTrackFile({{ playlist.id }}, {{ m.track.id }}, this)">Delete file</button>{% endif %}{% endif %}</div></td>
 </tr>{% else %}<tr><td colspan="10">{% if search_query %}No tracks match “{{ search_query }}”.{% else %}No tracks yet — hit Scan now.{% endif %}</td></tr>{% endfor %}
 </tbody></table></div>
 {% if page_count > 1 %}<nav class="track-pagination" role="navigation" aria-label="Playlist track pages">

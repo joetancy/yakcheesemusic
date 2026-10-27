@@ -18,7 +18,7 @@
 <td data-label="Score">{{ "%.1f"|format(c.score or 0) }}</td><td data-label="Verdict">{{ c.verdict or "—" }}</td>
 <td data-label="Quality">{{ c.quality or "—" }}</td><td data-label="Title">{{ c.title }}</td><td data-label="Artist">{{ c.artist }}</td>
 <td data-label="Source file"><span title="{{ c.source }}">{{ (c.source or "")[-70:] }}</span></td>
-<td data-label="Actions"><div class="button-group">{% if c.rejected %}<span class="badge" data-variant="destructive">Rejected</span> <button class="btn" data-variant="outline" data-size="sm" onclick="unreject({{ c.id }},this)">Undo</button>
+<td data-label="Actions"><div class="action-buttons">{% if c.rejected %}<span class="badge" data-variant="destructive">Rejected</span> <button class="btn" data-variant="outline" data-size="sm" onclick="unreject({{ c.id }},this)">Undo</button>
 {% else %}<button class="btn" data-size="sm" onclick="useCand({{ c.id }},this)">Use this</button> <button class="btn" data-variant="outline" data-size="sm" onclick="reject({{ c.id }},this)">Reject</button>{% endif %}</div></td>
 </tr>{% else %}<tr><td colspan="7">No candidates yet — hit Search again.</td></tr>{% endfor %}
 </tbody></table></div>

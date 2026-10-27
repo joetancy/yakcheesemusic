@@ -82,7 +82,7 @@ details > table { width: calc(100% - 2rem); margin-bottom: 1rem; }
 .rtable tbody tr[data-href]:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
 .rtable td a { font-weight: 600; text-underline-offset: 3px; }
 .rtable td button { white-space: normal; }
-.rtable .button-group { display: flex; flex-wrap: wrap; gap: .4rem; }
+.rtable .action-buttons { display: flex; flex-wrap: wrap; gap: .4rem; }
 .rtable tbody tr td[colspan] { padding: 1.5rem; color: var(--muted-foreground); text-align: center; }
 .bar { display: inline-block; width: 7rem; max-width: 48%; height: .45rem; overflow: hidden; vertical-align: middle; border-radius: 99px; background: var(--muted); }
 .fill { height: 100%; border-radius: inherit; background: var(--primary); }
@@ -98,7 +98,7 @@ details > table { width: calc(100% - 2rem); margin-bottom: 1rem; }
 .status-message[data-state="success"], .action-feedback[data-state="success"], .action-result[data-state="success"] { color: var(--success); }
 .status-message[data-state="error"], .action-feedback[data-state="error"], .action-result[data-state="error"] { color: var(--destructive); }
 .action-feedback { display: block; min-height: 1.25rem; margin: .25rem 0 .75rem; font-size: .8rem; }
-.action-row, .button-group { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.action-row, .action-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 .action-row { margin: 1rem 0 .5rem; }
 .library-actions { display: grid; gap: .65rem; margin-bottom: 1rem; }
 .action-card { display: grid; grid-template-columns: minmax(12rem, 1fr) auto minmax(8rem, 14rem); align-items: center; gap: .8rem; padding: .85rem 1rem; }
@@ -159,15 +159,16 @@ details > table { width: calc(100% - 2rem); margin-bottom: 1rem; }
   .rtable tbody tr td:empty { display: none; }
   .rtable tbody tr td[colspan] { justify-content: center; }
   .rtable tbody tr td[colspan]::before { display: none; }
-  .rtable td .button-group { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .rtable td .button-group .btn { width: 100%; }
+  .rtable td .action-buttons { min-width: 0; flex: 1; display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+  .rtable td .action-buttons .btn { width: 100%; min-width: 0; white-space: normal; }
+  .rtable td .action-buttons:empty { display: none; }
   .rtable .btn { min-height: 2.75rem; }
   .action-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .action-row .btn { width: 100%; padding-inline: .5rem; }
   .action-feedback { grid-column: 1 / -1; }
   .action-card { grid-template-columns: 1fr; }
-  .action-card .button-group { display: grid; grid-template-columns: 1fr 1fr; }
-  .action-card .button-group .btn { width: 100%; }
+  .action-card .action-buttons { display: grid; grid-template-columns: 1fr 1fr; }
+  .action-card .action-buttons .btn { width: 100%; }
   .file-action { align-items: stretch; flex-direction: column; }
   .file-action > header { width: 100%; flex: initial; }
   .file-action .btn { width: 100%; }
