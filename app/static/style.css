@@ -153,13 +153,14 @@ details > table { width: calc(100% - 2rem); margin-bottom: 1rem; }
   .rtable thead { display: none; }
   .rtable tbody { display: grid; width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr); gap: .55rem; }
   .rtable tbody tr { display: block; width: 100%; min-width: 0; padding: .4rem 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
-  .rtable tbody tr td { display: flex; width: 100%; min-width: 0; align-items: flex-start; gap: .6rem; padding: .4rem .65rem; border: 0; overflow-wrap: anywhere; }
-  .rtable tbody tr td::before { content: attr(data-label); flex: 0 0 5rem; padding-top: .1rem; color: var(--muted-foreground); font-size: .65rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .rtable tbody tr td { display: grid; width: 100%; min-width: 0; grid-template-columns: minmax(4.5rem, 28%) minmax(0, 1fr); align-items: start; gap: .6rem; padding: .4rem .65rem; border: 0; overflow-wrap: anywhere; }
+  .rtable tbody tr td::before { content: attr(data-label); min-width: 0; padding-top: .1rem; color: var(--muted-foreground); font-size: .65rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; overflow-wrap: anywhere; }
   .rtable tbody tr td:not([data-label])::before { display: none; }
+  .rtable tbody tr td > span { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
   .rtable tbody tr td:empty { display: none; }
   .rtable tbody tr td[colspan] { justify-content: center; }
   .rtable tbody tr td[colspan]::before { display: none; }
-  .rtable td .action-buttons { min-width: 0; flex: 1; display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+  .rtable td .action-buttons { width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; }
   .rtable td .action-buttons .btn { width: 100%; min-width: 0; white-space: normal; }
   .rtable td .action-buttons:empty { display: none; }
   .rtable .btn { min-height: 2.75rem; }
