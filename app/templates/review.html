@@ -3,9 +3,11 @@
 {% block section %}Review queue{% endblock %}
 {% block content %}
 <h1>Needs review / Failed / Skipped</h1>
-<div class="action-row"><button class="btn" data-variant="outline" onclick="retryAll(this)">Retry all failed and review tracks</button><span id="result" class="action-feedback muted" role="status" aria-live="polite"></span></div>
+<div class="action-row review-retry-row"><button class="btn" data-variant="outline" onclick="retryAll(this)">Retry all failed and review tracks</button><span id="result" class="action-feedback muted" role="status" aria-live="polite"></span></div>
+<div class="toolbar"><div role="group" class="field search-field"><label for="review-search">Search review queue</label><input class="input" id="review-search" type="search" placeholder="Search by title, artist, or status…"></div></div>
+<p id="review-search-empty" class="empty-state" hidden>No review items match your search. Try a different title, artist, or status.</p>
 <table class="table rtable"><thead><tr><th>Title</th><th>Artist</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-{% for t in tracks %}<tr><td data-label="Title">{{ t.title }}</td><td data-label="Artist">{{ t.artist }}</td><td data-label="Status">{{ t.status }}</td><td><a href="/review/{{ t.id }}">Review</a></td></tr>{% else %}<tr><td colspan="4">Nothing to review.</td></tr>{% endfor %}
+{% for t in tracks %}<tr data-review-item><td data-label="Title">{{ t.title }}</td><td data-label="Artist">{{ t.artist }}</td><td data-label="Status">{{ t.status }}</td><td data-label="Actions"><a class="btn" data-variant="outline" href="/review/{{ t.id }}">Review</a></td></tr>{% else %}<tr><td colspan="4">Nothing to review.</td></tr>{% endfor %}
 </tbody></table>
 <script>
 async function retryAll(button){
@@ -17,5 +19,12 @@ async function retryAll(button){
     setTimeout(()=>location.reload(), 500);
   }catch(e){setFeedback(el,`Could not reset tracks: ${e.message}`,'error');setBusy(button,false);}
 }
+const reviewSearch=document.getElementById('review-search');
+reviewSearch.addEventListener('input',function(){
+  const query=this.value.trim().toLocaleLowerCase();
+  const rows=[...document.querySelectorAll('[data-review-item]')];
+  rows.forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase().includes(query);});
+  document.getElementById('review-search-empty').hidden=!query||!rows.length||rows.some(row=>!row.hidden);
+});
 </script>
 {% endblock %}
