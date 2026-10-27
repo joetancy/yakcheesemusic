@@ -13,6 +13,12 @@
 <p class="muted">Last scan: {{ playlist.last_scan_at or "never" }} · Last sync: {{ playlist.last_sync_at or "never" }} · Size: {{ total_size }} in {{ total_files }} files</p>
 <p class="muted">Auto-sync: {{ playlist.sync_interval }}{% if not playlist.sync_enabled %} (paused){% elif playlist.next_sync_at %} · next: {{ playlist.next_sync_at }}{% endif %}</p>
 <div class="file-action"><div><strong>Playlist file</strong><span class="muted">{% if m3u_path %}{{ m3u_path }}{% else %}No playlist file generated yet{% endif %}</span></div><button class="button-outline" onclick="genM3u({{ playlist.id }})">Generate .m3u</button></div>
+<form method="get" action="/playlists/{{ playlist.id }}" role="search" style="display:flex;gap:.5rem;align-items:center;margin:1rem 0">
+<input type="search" name="q" value="{{ search_query }}" placeholder="Search tracks by title…" aria-label="Search tracks by title">
+<button type="submit">Search</button>
+{% if search_query %}<a href="/playlists/{{ playlist.id }}">Clear</a>{% endif %}
+</form>
+<p class="muted">{{ total_tracks }} track{% if total_tracks != 1 %}s{% endif %}{% if page_count > 1 %} · Page {{ page }} of {{ page_count }}{% endif %}</p>
 <table class="rtable"><tr><th data-sort="num">#</th><th>Title</th><th>Artist</th><th>Album</th><th>Status</th><th>Source</th><th>File</th><th>Type</th><th>Quality</th><th></th></tr>
 {% for m in memberships %}<tr>
 <td data-label="#">{{ m.position + 1 }}</td>
@@ -25,8 +31,13 @@
 <td data-label="Type">{{ m.track.format.upper() if m.track and m.track.format else "—" }}</td>
 <td data-label="Quality">{{ m.track.quality_label if m.track and m.track.quality_label else "—" }}</td>
 <td><div class="button-group">{% if m.track %}<button class="button-outline" onclick="research({{ m.track.id }}, this)">Search for review</button>{% if m.active and m.track.local_path %}<button class="button-destructive button-subtle" onclick="deleteTrackFile({{ playlist.id }}, {{ m.track.id }}, this)">Delete file</button>{% endif %}{% endif %}</div></td>
-</tr>{% else %}<tr><td colspan="10">No tracks yet — hit Scan now.</td></tr>{% endfor %}
+</tr>{% else %}<tr><td colspan="10">{% if search_query %}No tracks match “{{ search_query }}”.{% else %}No tracks yet — hit Scan now.{% endif %}</td></tr>{% endfor %}
 </table>
+{% if page_count > 1 %}<nav aria-label="Playlist track pages" style="display:flex;gap:1rem;align-items:center;margin:1rem 0">
+{% if page > 1 %}<a href="/playlists/{{ playlist.id }}?page={{ page - 1 }}&amp;q={{ search_query|urlencode }}">Previous</a>{% endif %}
+<span>Page {{ page }} of {{ page_count }}</span>
+{% if page < page_count %}<a href="/playlists/{{ playlist.id }}?page={{ page + 1 }}&amp;q={{ search_query|urlencode }}">Next</a>{% endif %}
+</nav>{% endif %}
 <script>
 makeSortable(document.querySelector('table.rtable'));
 async function research(id, btn){

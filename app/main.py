@@ -131,15 +131,30 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/playlists/{playlist_id}", response_class=HTMLResponse)
-def playlist_detail(playlist_id: int, request: Request, db: Session = Depends(get_db)):
+def playlist_detail(playlist_id: int, request: Request, q: str = "", page: int = 1,
+                    db: Session = Depends(get_db)):
     from fastapi import HTTPException
+    from sqlalchemy import func
+    from sqlalchemy.orm import joinedload
     from app.db.models import PlaylistTrack
+    q = q.strip()
     p = db.get(Playlist, playlist_id)
     if not p:
         raise HTTPException(status_code=404, detail="Not found")
+    page_size = 100
+    page = max(1, page)
+    tracks_query = select(PlaylistTrack).where(
+        PlaylistTrack.playlist_id == playlist_id)
+    if q:
+        tracks_query = tracks_query.where(PlaylistTrack.source_title.ilike(f"%{q}%"))
+    total_tracks = db.execute(
+        select(func.count()).select_from(tracks_query.subquery())).scalar_one()
+    page_count = max(1, (total_tracks + page_size - 1) // page_size)
+    page = min(page, page_count)
     memberships = db.execute(
-        select(PlaylistTrack).where(PlaylistTrack.playlist_id == playlist_id)
-        .order_by(PlaylistTrack.position)).scalars().all()
+        tracks_query.options(joinedload(PlaylistTrack.track))
+        .order_by(PlaylistTrack.position)
+        .offset((page - 1) * page_size).limit(page_size)).scalars().all()
     import os
     from app.sync.m3u import m3u_path
     from app.sync.library import playlist_usage, human_size
@@ -147,8 +162,11 @@ def playlist_detail(playlist_id: int, request: Request, db: Session = Depends(ge
     m3u = m3u_path(plist_dir, p)
     size_bytes, size_files = playlist_usage(db, playlist_id)
     return templates.TemplateResponse(request, "playlist_detail.html",
-                                       {"playlist": p, "memberships": memberships,
-                                        "m3u_path": str(m3u) if m3u.exists() else None,
+                                        {"playlist": p, "memberships": memberships,
+                                         "search_query": q, "page": page,
+                                         "page_count": page_count,
+                                         "total_tracks": total_tracks,
+                                         "m3u_path": str(m3u) if m3u.exists() else None,
                                         "total_size": human_size(size_bytes),
                                         "total_files": size_files})
 

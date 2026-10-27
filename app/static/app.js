@@ -1,5 +1,16 @@
 async function addPlaylist(e){e.preventDefault();const el=document.getElementById('add-result');el.textContent='adding…';try{const url=document.getElementById('playlist-url').value;const name=document.getElementById('playlist-name').value;const r=await fetch('/api/playlists',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url,name:name})});let j={};try{j=await r.json();}catch(_){}el.textContent=JSON.stringify(j);if(r.ok)location.reload();}catch(err){el.textContent='request failed: '+err;}return false;}
-function toggleTheme(){const h=document.documentElement;const next=h.dataset.theme==='dark'?'light':'dark';h.dataset.theme=next;try{localStorage.setItem('theme',next);}catch(e){}}
+function updateThemeControl(){
+  const dark=document.documentElement.dataset.theme==='dark'||
+    (!document.documentElement.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches);
+  const button=document.getElementById('theme-toggle');
+  if(!button) return;
+  const label=dark?'Switch to light theme':'Switch to dark theme';
+  button.setAttribute('aria-label',label);
+  button.title=label;
+  button.querySelector('use').setAttribute('href',`/static/icons.svg#${dark?'sun':'moon'}`);
+}
+function toggleTheme(){const h=document.documentElement;const current=h.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');const next=current==='dark'?'light':'dark';h.dataset.theme=next;try{localStorage.setItem('theme',next);}catch(e){}updateThemeControl();}
+updateThemeControl();
 async function trackJob(data, elId, onDone){
   const el=document.getElementById(elId);
   if(!el) return;
@@ -40,6 +51,21 @@ async function pollTrack(tid, el, timeoutMs){
       });
     });
   }catch(e){}
+})();
+(function clickableRows(){
+  document.addEventListener('click', e=>{
+    const row=e.target.closest('tr[data-href]');
+    if(!row || e.target.closest('a,button,input,select,textarea')) return;
+    location.href=row.dataset.href;
+  });
+  document.addEventListener('keydown', e=>{
+    const row=e.target.closest('tr[data-href]');
+    if(row && !e.target.closest('a,button,input,select,textarea') &&
+       (e.key==='Enter' || e.key===' ')){
+      e.preventDefault();
+      location.href=row.dataset.href;
+    }
+  });
 })();
 function makeSortable(table){
   if(!table || !table.tHead) return;

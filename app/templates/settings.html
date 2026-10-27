@@ -3,7 +3,7 @@
 {% block section %}Settings{% endblock %}
 {% block content %}
 <h1>Settings</h1>
-<details open data-remember="set-match"><summary>Match confidence</summary>
+<details open data-remember="set-match"><summary><svg class="ui-icon disclosure-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-right"></use></svg>Match confidence</summary>
 <p class="muted">Global gates applied to every search. Score ≥ auto → download.
 Score ≥ conditional → download unless a close rival exists.
 Score ≥ review → needs review, else rejected.</p>
@@ -14,7 +14,7 @@ Score ≥ review → needs review, else rejected.</p>
 <button type="submit">Save</button> <span id="settings-result" class="muted"></span>
 </form>
 </details>
-<details open data-remember="set-format"><summary>Download format</summary>
+<details open data-remember="set-format"><summary><svg class="ui-icon disclosure-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-right"></use></svg>Download format</summary>
 <p class="muted">Original keeps source files as-is. MP3 transcodes lossless downloads to 320kbps (source deleted after a verified convert). Applies to new downloads; use the button below for existing files.</p>
 <div class="format-actions"><select id="preferred_format">
 <option value="original" {% if preferred_format == "original" %}selected{% endif %}>Original (keep FLAC etc.)</option>
@@ -24,7 +24,7 @@ Score ≥ review → needs review, else rejected.</p>
 <button class="button-outline" onclick="convertExisting()">Convert existing FLACs</button>
 <span id="format-result" class="action-feedback muted"></span></div>
 </details>
-<details open data-remember="set-install"><summary>Installation</summary>
+<details open data-remember="set-install"><summary><svg class="ui-icon disclosure-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-right"></use></svg>Installation</summary>
 <table class="rtable">
 <tr><td data-label="Music dir">{{ music_dir }}</td></tr>
 <tr><td data-label="ReplayGain target">{{ replaygain_target }} LUFS</td></tr>

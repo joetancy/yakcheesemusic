@@ -9,11 +9,19 @@
 <button type="submit">Add playlist</button>
 </form>
 <p id="add-result"></p>
+<input id="playlist-search" type="search" placeholder="Search playlists by title…" aria-label="Search playlists by title" style="margin: 0.5rem 0; max-width: 24rem">
 <table class="rtable"><tr><th>Name</th><th>Provider</th><th>Progress</th><th>Size</th><th>Enabled</th><th>Sync</th><th></th></tr>
-{% for p in playlists %}<tr><td data-label="Name"><a href="/playlists/{{ p.id }}">{{ p.name or p.url }}</a></td><td data-label="Provider">{{ p.provider }}</td><td data-label="Progress">{{ progress[p.id].done }}/{{ progress[p.id].total }}</td><td data-label="Size">{{ progress[p.id].size }}</td><td data-label="Enabled">{{ p.enabled }}</td><td data-label="Sync">{{ p.sync_interval }}</td><td><button class="button-destructive button-subtle" onclick="deletePlaylist({{ p.id }}, this)">Delete</button></td></tr>{% else %}<tr><td colspan="7">No playlists yet.</td></tr>{% endfor %}
+{% for p in playlists %}<tr data-href="/playlists/{{ p.id }}" tabindex="0" role="link" aria-label="Open playlist {{ p.name or p.url }}"><td data-label="Name"><a href="/playlists/{{ p.id }}">{{ p.name or p.url }}</a></td><td data-label="Provider">{{ p.provider }}</td><td data-label="Progress">{{ progress[p.id].done }}/{{ progress[p.id].total }}</td><td data-label="Size">{{ progress[p.id].size }}</td><td data-label="Enabled">{{ p.enabled }}</td><td data-label="Sync">{{ p.sync_interval }}</td><td><button class="button-destructive button-subtle" onclick="deletePlaylist({{ p.id }}, this)">Delete</button></td></tr>{% else %}<tr><td colspan="7">No playlists yet.</td></tr>{% endfor %}
 </table>
 <script>
 makeSortable(document.querySelector('table.rtable'));
+document.getElementById('playlist-search').addEventListener('input', function(){
+  const query = this.value.trim().toLocaleLowerCase();
+  document.querySelectorAll('table.rtable tr').forEach((row, index) => {
+    if(index === 0 || row.cells.length < 2) return;
+    row.hidden = !row.cells[0].textContent.toLocaleLowerCase().includes(query);
+  });
+});
 async function deletePlaylist(id, btn){
   const name = btn.closest('tr').firstElementChild.textContent.trim();
   if(!confirm('Delete playlist "' + name + '"?')) return;

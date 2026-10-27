@@ -2,7 +2,7 @@
 {% block title %}Dashboard - yakcheesemusic{% endblock %}
 {% block section %}Dashboard{% endblock %}
 {% block content %}
-<h1>Dashboard <span class="muted" id="live-dot">● live</span></h1>
+<h1>Dashboard <span class="muted" id="live-dot"><span class="status-indicator" aria-hidden="true"></span> live</span></h1>
 <div class="cards">
 <div class="card"><div class="num" id="s-playlists">{{ n_playlists }}</div><div>Playlists</div></div>
 <div class="card"><div class="num" id="s-tracks">{{ n_tracks }}</div><div>Tracks</div></div>
@@ -20,21 +20,21 @@
 <div><h3>Downloading</h3><ul id="dl-list"></ul></div>
 </div>
 
-<details open data-remember="dash-playlists"><summary>Playlists</summary>
+<details open data-remember="dash-playlists"><summary><svg class="ui-icon disclosure-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-right"></use></svg>Playlists</summary>
 <table id="progress-table" class="rtable"><tr><th>Name</th><th>Progress</th><th>Last sync</th></tr>
-{% for p in progress %}<tr><td data-label="Name"><a href="/playlists/{{ p.id }}">{{ p.name }}</a></td>
+{% for p in progress %}<tr data-href="/playlists/{{ p.id }}" tabindex="0" role="link" aria-label="Open playlist {{ p.name }}"><td data-label="Name"><a href="/playlists/{{ p.id }}">{{ p.name }}</a></td>
 <td data-label="Progress"><div class="bar"><div class="fill" style="width:{{ (100*p.done//p.total) if p.total else 0 }}%"></div></div> {{ p.done }}/{{ p.total }}</td>
 <td data-label="Last sync">{{ p.last_sync_at or "never" }}</td></tr>{% endfor %}
 </table>
 </details>
 
-<details open data-remember="dash-recent"><summary>Recent results</summary>
+<details open data-remember="dash-recent"><summary><svg class="ui-icon disclosure-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-right"></use></svg>Recent results</summary>
 <table id="recent-table" class="rtable"><tr><th>Track</th><th>Status</th><th>Quality</th></tr>
 {% for t in recent %}<tr><td data-label="Track">{{ t.title }} — {{ t.artist }}</td><td data-label="Status">{{ t.status }}</td><td data-label="Quality">{{ t.quality or "—" }}</td></tr>{% endfor %}
 </table>
 </details>
 
-<details open data-remember="dash-library"><summary>Library</summary>
+<details open data-remember="dash-library"><summary><svg class="ui-icon disclosure-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-right"></use></svg>Library</summary>
 <div class="library-actions">
 <div class="action-card"><div><strong>ReplayGain</strong><span>Normalize loudness across your library.</span></div><button class="button-outline" onclick="rgSweep()">Apply ReplayGain</button><span id="rg-result" class="action-result muted"></span></div>
 <div class="action-card"><div><strong>Check files</strong><span>Find unplayable files and queue replacements.</span></div><div class="button-group"><button class="button-destructive" onclick="rescan(true)">Rescan &amp; remove</button><button class="button-outline" onclick="rescan(false)">Preview</button></div><span id="rescan-result" class="action-result muted"></span></div>
@@ -42,7 +42,7 @@
 </div>
 </details>
 
-<details open data-remember="dash-jobs"><summary>Sync jobs</summary>
+<details open data-remember="dash-jobs"><summary><svg class="ui-icon disclosure-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-right"></use></svg>Sync jobs</summary>
 <table id="jobs-table" class="rtable"><tr><th>Job</th><th>Playlist</th><th>Status</th><th>Seen</th><th>Downloaded</th><th>Failed</th></tr>
 {% for j in jobs %}<tr><td data-label="Job">{{ j.id }}</td><td data-label="Playlist">{{ j.playlist_id }}</td><td data-label="Status">{{ j.status }}</td><td data-label="Seen">{{ j.seen }}</td><td data-label="Downloaded">{{ j.downloaded }}</td><td data-label="Failed">{{ j.failed }}</td></tr>{% endfor %}
 </table>
@@ -87,7 +87,7 @@ async function refresh(){
     document.getElementById('progress-table').innerHTML =
       '<tr><th>Name</th><th>Progress</th><th>Last sync</th></tr>' + (j.progress||[]).map(p=>{
         const pct = p.total ? Math.floor(100*p.done/p.total) : 0;
-        return `<tr><td data-label="Name"><a href="/playlists/${p.id}">${esc(p.name)}</a></td><td data-label="Progress"><div class="bar"><div class="fill" style="width:${pct}%"></div></div> ${p.done}/${p.total}</td><td data-label="Last sync">${esc(p.last_sync_at||'never')}</td></tr>`;
+        return `<tr data-href="/playlists/${p.id}" tabindex="0" role="link" aria-label="Open playlist ${esc(p.name)}"><td data-label="Name"><a href="/playlists/${p.id}">${esc(p.name)}</a></td><td data-label="Progress"><div class="bar"><div class="fill" style="width:${pct}%"></div></div> ${p.done}/${p.total}</td><td data-label="Last sync">${esc(p.last_sync_at||'never')}</td></tr>`;
       }).join('');
     document.getElementById('recent-table').innerHTML =
       '<tr><th>Track</th><th>Status</th><th>Quality</th></tr>' + (j.recent||[]).map(t=>
@@ -95,8 +95,8 @@ async function refresh(){
     document.getElementById('jobs-table').innerHTML =
       '<tr><th>Job</th><th>Playlist</th><th>Status</th><th>Seen</th><th>Downloaded</th><th>Failed</th></tr>' + (j.jobs||[]).map(x=>
         `<tr><td data-label="Job">${x.id}</td><td data-label="Playlist">${x.playlist_id}</td><td data-label="Status">${esc(x.status)}</td><td data-label="Seen">${x.seen}</td><td data-label="Downloaded">${x.downloaded}</td><td data-label="Failed">${x.failed}</td></tr>`).join('');
-    document.getElementById('live-dot').textContent = '● live';
-  }catch(e){ document.getElementById('live-dot').textContent = '● offline'; }
+    document.getElementById('live-dot').innerHTML = '<span class="status-indicator" aria-hidden="true"></span> live';
+  }catch(e){ document.getElementById('live-dot').innerHTML = '<span class="status-indicator offline" aria-hidden="true"></span> offline'; }
 }
 async function first(){ await refresh();
   document.getElementById('dl-list').innerHTML = tlist({{ downloading|tojson }});
