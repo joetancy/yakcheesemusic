@@ -7,17 +7,18 @@
 <p class="muted">{{ reason }}</p>
 <section class="card review-actions">
 <header><h2>Search and review actions</h2><p>Find alternate versions or update this track’s status.</p></header>
-<div class="action-row"><button class="btn" onclick="searchNow(this)">Search again</button><button class="btn" data-variant="outline" onclick="searchMusicdl(this)">Search QQ Music &amp; NetEase</button><button class="btn" data-variant="outline" onclick="act('retry',this)">Reset to pending</button></div>
-<form class="custom-search" onsubmit="event.preventDefault();searchNow(this.querySelector('[type=submit]'))"><div role="group" class="field"><label for="custom-q">Custom search term</label><input class="input" id="custom-q" placeholder="Enter a title or artist"></div><button class="btn" data-variant="outline" type="submit">Search Soulseek</button></form>
+<div class="action-row"><button class="btn" onclick="searchNow(this)" {% if not source_slskd_enabled %}disabled{% endif %}>Search Soulseek</button><button class="btn" data-variant="outline" onclick="searchMusicdl(this)" {% if not source_musicdl_enabled %}disabled{% endif %}>Search QQ Music &amp; NetEase</button><button class="btn" data-variant="outline" onclick="act('retry',this)">Reset to pending</button></div>
+{% if not source_slskd_enabled or not source_musicdl_enabled %}<p class="muted">{% if not source_slskd_enabled and not source_musicdl_enabled %}Soulseek and Musicdl are disabled.{% elif not source_slskd_enabled %}Soulseek is disabled. Use QQ Music &amp; NetEase if enabled, or{% else %}Musicdl is disabled. Use Soulseek if enabled, or{% endif %} <a href="/settings">change search sources in Settings</a>.</p>{% endif %}
+<form class="custom-search" onsubmit="event.preventDefault();searchNow(this.querySelector('[type=submit]'))"><div role="group" class="field"><label for="custom-q">Custom search term <span class="muted">(optional)</span></label><input class="input" id="custom-q" placeholder="Enter a title or artist"></div><button class="btn" data-variant="outline" type="submit" {% if not source_slskd_enabled %}disabled{% endif %}>Search Soulseek with term</button></form>
 <div class="action-row secondary-actions">{% if track.status == 'skipped' %}<button class="btn" data-variant="outline" onclick="act('unskip',this)">Unskip track</button>{% else %}<button class="btn" data-variant="outline" onclick="act('skip',this)">Skip track</button>{% endif %}</div>
 <span id="result" class="action-feedback muted" role="status" aria-live="polite"></span>
 </section>
 <h2>Candidates (showing {{ shown_usable }} of {{ total_usable }} usable, {{ total_candidates - total_usable }} rejected)</h2>
-<div class="table-container"><table class="table rtable"><thead><tr><th>Score</th><th>Verdict</th><th>Quality</th><th>Title</th><th>Artist</th><th>Source file</th><th>Actions</th></tr></thead><tbody>
+<div class="table-container" role="region" aria-label="Candidates; scroll horizontally to see all columns" tabindex="0"><table class="table rtable"><thead><tr><th>Score</th><th>Verdict</th><th>Quality</th><th>Title</th><th>Artist</th><th>Source file</th><th>Actions</th></tr></thead><tbody>
 {% for c in candidates %}<tr{% if c.rejected %} style="opacity:.45"{% endif %}>
 <td data-label="Score">{{ "%.1f"|format(c.score or 0) }}</td><td data-label="Verdict">{{ c.verdict or "—" }}</td>
 <td data-label="Quality">{{ c.quality or "—" }}</td><td data-label="Title">{{ c.title }}</td><td data-label="Artist">{{ c.artist }}</td>
-<td data-label="Source file"><span title="{{ c.source }}">{{ (c.source or "")[-70:] }}</span></td>
+<td data-label="Source file"><span>{{ c.source or "—" }}</span></td>
 <td data-label="Actions"><div class="action-buttons">{% if c.rejected %}<span class="badge" data-variant="destructive">Rejected</span> <button class="btn" data-variant="outline" data-size="sm" onclick="unreject({{ c.id }},this)">Undo</button>
 {% else %}<button class="btn" data-size="sm" onclick="useCand({{ c.id }},this)">Use this</button> <button class="btn" data-variant="outline" data-size="sm" onclick="reject({{ c.id }},this)">Reject</button>{% endif %}</div></td>
 </tr>{% else %}<tr><td colspan="7">No candidates yet — hit Search again.</td></tr>{% endfor %}

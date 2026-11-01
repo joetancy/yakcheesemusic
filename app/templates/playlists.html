@@ -4,7 +4,7 @@
 {% block content %}
 <h1>Playlists</h1>
 <form id="add-playlist" class="card" method="post" action="/api/playlists" onsubmit="return addPlaylist(event)">
-<div role="group" class="field"><label for="playlist-url">Spotify playlist URL</label><input class="input" name="url" id="playlist-url" placeholder="Paste a Spotify playlist URL" required></div>
+<div role="group" class="field"><label for="playlist-url">Spotify playlist URL <span class="muted">(required)</span></label><input class="input" type="url" name="url" id="playlist-url" placeholder="Paste a Spotify playlist URL" required aria-describedby="add-result"></div>
 <div role="group" class="field"><label for="playlist-name">Name <span class="muted">(optional)</span></label><input class="input" name="name" id="playlist-name" placeholder="Custom name"></div>
 <button class="btn" type="submit">Add playlist</button>
 </form>
@@ -12,10 +12,10 @@
 <div class="toolbar"><div role="group" class="field search-field"><label for="playlist-search">Find a playlist</label><input class="input" id="playlist-search" type="search" placeholder="Search by title…" aria-label="Search playlists by title"></div></div>
 <p id="playlist-search-empty" class="empty-state" hidden>No playlists match that title. Try a different search.</p>
 <p id="playlist-delete-result" class="status-message" role="status" aria-live="polite"></p>
-<table class="table rtable"><thead><tr><th>Name</th><th>Provider</th><th>Progress</th><th>Size</th><th>Enabled</th><th>Sync</th><th>Actions</th></tr></thead><tbody>
+<div class="table-container" role="region" aria-label="Playlists; scroll horizontally to see all columns" tabindex="0"><table class="table rtable"><thead><tr><th>Name</th><th>Provider</th><th>Progress</th><th>Size</th><th>Enabled</th><th>Sync</th><th data-sort="none">Actions</th></tr></thead><tbody>
 {% for p in playlists %}<tr data-href="/playlists/{{ p.id }}" tabindex="0" role="group" aria-label="Playlist card: {{ p.name or p.url }}. Press Enter to open."><td data-label="Name"><a href="/playlists/{{ p.id }}">{{ p.name or p.url }}</a></td><td data-label="Provider"><span class="badge" data-variant="secondary">{{ p.provider }}</span></td><td data-label="Progress">{{ progress[p.id].done }}/{{ progress[p.id].total }}</td><td data-label="Size">{{ progress[p.id].size }}</td><td data-label="Enabled">{{ "Yes" if p.enabled else "No" }}</td><td data-label="Sync">{{ p.sync_interval }}</td><td data-label="Actions"><button class="btn" data-variant="destructive" data-size="sm" onclick="deletePlaylist({{ p.id }}, this)">Delete</button></td></tr>{% else %}<tr><td colspan="7">No playlists yet.</td></tr>{% endfor %}
 </tbody>
-</table>
+</table></div>
 <script>
 makeSortable(document.querySelector('table.rtable'));
 document.getElementById('playlist-search').addEventListener('input', function(){

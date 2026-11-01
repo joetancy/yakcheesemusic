@@ -64,7 +64,7 @@ async function trackJob(data, elId, onDone, button){
       let msg=`job ${id}: ${j.status} (seen ${j.tracks_seen||0}, done ${j.tracks_downloaded||0}, failed ${j.tracks_failed||0})`;
       if(j.error) msg+=` — ${j.error.slice(0,300)}`;
       setFeedback(el,msg,['failed','error'].includes(j.status)?'error':j.status==='running'?'loading':'success');
-      if(j.status!=='running'){ clearInterval(timer);setBusy(button,false);if(onDone) onDone(j); }
+      if(j.status!=='running'){ clearInterval(timer);setBusy(button,false);if(onDone && !['failed','error'].includes(j.status)) onDone(j); }
     }catch(e){ clearInterval(timer);setBusy(button,false);setFeedback(el,`Could not check job ${id}. Refresh the page to check its status.`,'error'); }
   },2000);
 }
@@ -113,6 +113,7 @@ function makeSortable(table){
   if(!table || !table.tHead) return;
   const ths=[...table.tHead.rows[0].cells];
   ths.forEach((th,i)=>{
+    if(th.dataset.sort==='none') return;
     th.tabIndex=0;th.title=`Sort by ${th.textContent.trim()}`;th.setAttribute('aria-sort','none');
     th.addEventListener('click',()=>{
       const dir=th.dataset.dir==='asc'?'desc':'asc';

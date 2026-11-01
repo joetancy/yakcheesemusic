@@ -160,6 +160,7 @@ def playlist_detail(playlist_id: int, request: Request, q: str = "", page: int =
     import os
     from app.sync.m3u import m3u_path
     from app.sync.library import playlist_usage, human_size
+    from app.db.settings_store import source_enabled
     plist_dir = settings.playlist_dir or os.path.join(settings.music_dir, "_Playlists")
     m3u = m3u_path(plist_dir, p)
     size_bytes, size_files = playlist_usage(db, playlist_id)
@@ -170,7 +171,9 @@ def playlist_detail(playlist_id: int, request: Request, q: str = "", page: int =
                                          "total_tracks": total_tracks,
                                          "m3u_path": str(m3u) if m3u.exists() else None,
                                         "total_size": human_size(size_bytes),
-                                        "total_files": size_files})
+                                        "total_files": size_files,
+                                        "source_slskd_enabled": source_enabled(db, "slskd"),
+                                        "source_musicdl_enabled": source_enabled(db, "musicdl")})
 
 
 @app.get("/review", response_class=HTMLResponse)
@@ -193,7 +196,7 @@ def review_detail(track_id: int, request: Request, db: Session = Depends(get_db)
     rows = db.execute(select(DownloadCandidate).where(
         DownloadCandidate.track_id == track_id).order_by(
         desc(DownloadCandidate.score))).scalars().all()
-    from app.db.settings_store import get_thresholds
+    from app.db.settings_store import get_thresholds, source_enabled
     auto, conditional, review = get_thresholds(db)
     cands = [{"id": c.id, "title": c.title, "artist": c.artist,
               "quality": c.quality, "score": c.score,
@@ -226,4 +229,6 @@ def review_detail(track_id: int, request: Request, db: Session = Depends(get_db)
                                         "reason": reason,
                                         "shown_usable": len(alive),
                                         "total_usable": len(usable),
-                                        "total_candidates": total})
+                                        "total_candidates": total,
+                                        "source_slskd_enabled": source_enabled(db, "slskd"),
+                                        "source_musicdl_enabled": source_enabled(db, "musicdl")})

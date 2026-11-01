@@ -99,6 +99,17 @@ def test_source_settings_disable_manual_searches(seeded_client):
     assert seeded_client.patch('/api/settings', json={'source_slskd_enabled': 'yes'}).status_code == 422
 
 
+def test_review_shows_enabled_musicdl_when_soulseek_disabled(seeded_client):
+    response = seeded_client.patch('/api/settings', json={
+        'source_slskd_enabled': False, 'source_musicdl_enabled': True})
+    assert response.status_code == 200
+    tid = seeded_client.get('/api/tracks', params={'status': 'needs_review'}).json()[0]['id']
+    html = seeded_client.get(f'/review/{tid}').text
+    assert 'Soulseek is disabled.' in html
+    assert 'onclick="searchMusicdl(this)" disabled' not in html
+    assert 'onclick="searchNow(this)" disabled' in html
+
+
 def test_retry_single_track(seeded_client):
     tid = seeded_client.get("/api/tracks", params={"status": "failed"}).json()[0]["id"]
     r = seeded_client.post(f"/api/tracks/{tid}/retry")

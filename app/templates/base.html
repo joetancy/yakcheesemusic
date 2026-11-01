@@ -16,16 +16,16 @@
     <a class="brand" href="/" aria-label="yakcheesemusic home"><span class="brand-mark"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#brand-music"></use></svg></span><span>yakcheesemusic</span></a>
     <div class="nav-label">Workspace</div>
     <nav class="side-nav" aria-label="Main navigation">
-      <a href="/" class="{% if request.url.path == '/' %}active{% endif %}"><svg class="ui-icon nav-icon" aria-hidden="true"><use href="/static/icons.svg#home"></use></svg>Dashboard</a>
-      <a href="/playlists" class="{% if request.url.path.startswith('/playlists') %}active{% endif %}"><svg class="ui-icon nav-icon" aria-hidden="true"><use href="/static/icons.svg#music"></use></svg>Playlists</a>
-      <a href="/review" class="{% if request.url.path.startswith('/review') %}active{% endif %}"><svg class="ui-icon nav-icon" aria-hidden="true"><use href="/static/icons.svg#clock"></use></svg>Review queue</a>
-      <a href="/settings" class="{% if request.url.path.startswith('/settings') %}active{% endif %}"><svg class="ui-icon nav-icon" aria-hidden="true"><use href="/static/icons.svg#settings"></use></svg>Settings</a>
+      <a href="/" {% if request.url.path == '/' %}class="active" aria-current="page"{% endif %}><svg class="ui-icon nav-icon" aria-hidden="true"><use href="/static/icons.svg#home"></use></svg>Dashboard</a>
+      <a href="/playlists" {% if request.url.path.startswith('/playlists') %}class="active" aria-current="page"{% endif %}><svg class="ui-icon nav-icon" aria-hidden="true"><use href="/static/icons.svg#music"></use></svg>Playlists</a>
+      <a href="/review" {% if request.url.path.startswith('/review') %}class="active" aria-current="page"{% endif %}><svg class="ui-icon nav-icon" aria-hidden="true"><use href="/static/icons.svg#clock"></use></svg>Review queue</a>
+      <a href="/settings" {% if request.url.path.startswith('/settings') %}class="active" aria-current="page"{% endif %}><svg class="ui-icon nav-icon" aria-hidden="true"><use href="/static/icons.svg#settings"></use></svg>Settings</a>
     </nav>
     <div class="sidebar-bottom"><span class="status-indicator"></span><span>Library sync workspace</span></div>
   </aside>
   <div class="main-shell">
     <header class="topbar"><nav class="breadcrumb" aria-label="Breadcrumb"><ol><li><a href="/">Music library</a></li><li aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-right"></use></svg></li><li><span aria-current="page">{% block section %}Overview{% endblock %}</span></li></ol></nav><button id="theme-toggle" class="btn" data-variant="outline" data-size="icon" onclick="toggleTheme()" title="Switch theme" aria-label="Switch theme"><svg class="ui-icon" aria-hidden="true"><use href="/static/icons.svg#moon"></use></svg></button></header>
-    <main class="page-content" id="main-content">{% block content %}{% endblock %}</main>
+    <main class="page-content" id="main-content" tabindex="-1">{% block content %}{% endblock %}</main>
     <footer class="app-footer">yakcheesemusic <span>·</span> Self-hosted playlist sync</footer>
   </div>
 </div>
