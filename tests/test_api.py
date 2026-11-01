@@ -16,12 +16,18 @@ def test_create_playlist_validation(client):
     assert r.json()["provider"] == "spotify"
 
 
-def test_create_playlist_normalizes_url(client):
+def test_create_playlist_preserves_url_query_params(client):
     pid = client.post("/api/playlists", json={
         "url": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc&utm_source=copy-link",
         "name": "test"}).json()["id"]
     assert client.get(f"/api/playlists/{pid}").json()["url"] == \
-        "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
+        "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc&utm_source=copy-link"
+
+
+def test_create_playlist_preserves_spotify_locale(client):
+    url = "https://open.spotify.com/playlist/3mA58Fwcau1CIViqRgrVO0?locale=zh-CN"
+    created = client.post("/api/playlists", json={"url": url}).json()
+    assert client.get(f"/api/playlists/{created['id']}").json()["url"] == url
 
 
 def test_delete_playlist_cleans_orphans(client):

@@ -27,10 +27,9 @@ def create_playlist(payload: dict, db: Session = Depends(get_db)):
         from fastapi import HTTPException
         raise HTTPException(status_code=400,
                             detail="Only Spotify playlist URLs are supported")
-    # store the canonical URL: share links with ?si=/pi=/pt= params get
-    # login-walled, which breaks anonymous reads (web harvest, embed)
-    pid = extract_playlist_id(url)
-    url = f"https://open.spotify.com/playlist/{pid}"
+    # Keep the submitted share URL (including query parameters) for display and
+    # future use. The Spotify provider extracts the playlist ID for API reads.
+    url = url.strip()
     p = Playlist(name=payload.get("name", url), provider="spotify", url=url)
     db.add(p)
     db.commit()
