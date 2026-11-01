@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
@@ -21,15 +22,28 @@ _UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
 _PATHFINDER = "https://api-partner.spotify.com/pathfinder/v2/query"
 
 
+def _browser_locale(url: str) -> str:
+    """Use Spotify's requested page locale, falling back to US English."""
+    return (parse_qs(urlsplit(url).query).get("locale") or ["en-US"])[0]
+
+
 def _harvest(url: str, playlist_id: str, timeout_s: int = 90) -> dict:
     """Return {headers, operationName, variables, extensions} from live traffic."""
     from playwright.sync_api import sync_playwright
 
     found: dict = {}
+    locale = _browser_locale(url)
+    language = locale.split("-", 1)[0]
+    accept_language = f"{locale},{language};q=0.9,en;q=0.8"
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
+        browser = pw.chromium.launch(headless=True,
+                                     args=["--no-sandbox", f"--lang={locale}"])
         try:
-            page = browser.new_page(user_agent=_UA)
+            context = browser.new_context(
+                user_agent=_UA,
+                locale=locale,
+                extra_http_headers={"Accept-Language": accept_language})
+            page = context.new_page()
 
             def on_request(req) -> None:
                 if "pathfinder" not in req.url or req.method != "POST":
@@ -49,14 +63,15 @@ def _harvest(url: str, playlist_id: str, timeout_s: int = 90) -> dict:
                     found.update({
                         "headers": {k: v for k, v in req.headers.items()
                                     if k.lower() in ("authorization", "client-token",
-                                                     "spotify-app-version")},
+                                                     "spotify-app-version",
+                                                     "accept-language")},
                         "operationName": data["operationName"],
                         "variables": data["variables"],
                         "extensions": data["extensions"],
                     })
 
             page.on("request", on_request)
-            page.goto(url, timeout=60000)
+            page.goto(url, wait_until="domcontentloaded", timeout=60000)
             deadline = time.time() + timeout_s
             while not found and time.time() < deadline:
                 try:
@@ -111,6 +126,9 @@ def fetch_full_playlist(url: str, playlist_id: str) -> ProviderPlaylist:
     headers = {"authorization": harvested["headers"]["authorization"],
                "client-token": harvested["headers"]["client-token"],
                "spotify-app-version": harvested["headers"].get("spotify-app-version", ""),
+               "Accept-Language": harvested["headers"].get(
+                   "accept-language", f"{_browser_locale(url)},"
+                   f"{_browser_locale(url).split('-', 1)[0]};q=0.9,en;q=0.8"),
                "content-type": "application/json",
                "User-Agent": _UA,
                "Origin": "https://open.spotify.com",

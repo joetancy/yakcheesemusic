@@ -81,13 +81,15 @@ def test_fetch_preserves_locale_query_params(monkeypatch):
     def fake_harvest(url, pid, timeout_s=90):
         seen["url"] = url
         return {"headers": {"authorization": "B", "client-token": "C",
-                            "spotify-app-version": "V"},
+                            "spotify-app-version": "V",
+                            "accept-language": "zh-CN,zh;q=0.9,en;q=0.8"},
                 "operationName": "fetchPlaylist",
                 "variables": {"uri": f"spotify:playlist:{pid}", "offset": 0,
                               "limit": 25},
                 "extensions": {}}
 
     def fake_page(session, headers, payload):
+        seen["accept_language"] = headers.get("Accept-Language")
         return {"data": {"playlistV2": {
             "name": "N", "content": {"totalCount": 0, "items": []}}}}
 
@@ -97,8 +99,17 @@ def test_fetch_preserves_locale_query_params(monkeypatch):
            "&utm_source=chatgpt.com")
     pl = web.fetch_full_playlist(url, "abc123")
     assert seen["url"] == url
+    assert seen["accept_language"] == "zh-CN,zh;q=0.9,en;q=0.8"
     assert pl.url == url
     assert pl.complete is True
+
+
+def test_browser_locale_comes_from_playlist_url():
+    from app.providers.spotify_web import _browser_locale
+    assert _browser_locale(
+        "https://open.spotify.com/playlist/abc?locale=zh-CN&utm_source=chatgpt.com"
+    ) == "zh-CN"
+    assert _browser_locale("https://open.spotify.com/playlist/abc") == "en-US"
 
 
 def _mem_db():
