@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     # download format: "original" keeps source format, "mp3" transcodes
     # lossless downloads to 320kbps MP3
     preferred_format: str = "original"
+    source_slskd_enabled: bool = True
+    source_musicdl_enabled: bool = True
 
     # slskd (Soulseek) download layer
     slskd_url: str = "http://slskd:5030"

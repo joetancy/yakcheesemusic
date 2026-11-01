@@ -7,8 +7,8 @@
 <p class="muted">{{ reason }}</p>
 <section class="card review-actions">
 <header><h2>Search and review actions</h2><p>Find alternate versions or update this track’s status.</p></header>
-<div class="action-row"><button class="btn" onclick="searchNow(this)">Search again</button><button class="btn" data-variant="outline" onclick="searchArchive(this)">Search Internet Archive</button><button class="btn" data-variant="outline" onclick="act('retry',this)">Reset to pending</button></div>
-<form class="custom-search" onsubmit="event.preventDefault();searchNow(this.querySelector('[type=submit]'))"><div role="group" class="field"><label for="custom-q">Custom Soulseek search</label><input class="input" id="custom-q" placeholder="Enter a title or artist"></div><button class="btn" data-variant="outline" type="submit">Search custom term</button></form>
+<div class="action-row"><button class="btn" onclick="searchNow(this)">Search again</button><button class="btn" data-variant="outline" onclick="searchMusicdl(this)">Search QQ Music &amp; NetEase</button><button class="btn" data-variant="outline" onclick="act('retry',this)">Reset to pending</button></div>
+<form class="custom-search" onsubmit="event.preventDefault();searchNow(this.querySelector('[type=submit]'))"><div role="group" class="field"><label for="custom-q">Custom search term</label><input class="input" id="custom-q" placeholder="Enter a title or artist"></div><button class="btn" data-variant="outline" type="submit">Search Soulseek</button></form>
 <div class="action-row secondary-actions">{% if track.status == 'skipped' %}<button class="btn" data-variant="outline" onclick="act('unskip',this)">Unskip track</button>{% else %}<button class="btn" data-variant="outline" onclick="act('skip',this)">Skip track</button>{% endif %}</div>
 <span id="result" class="action-feedback muted" role="status" aria-live="polite"></span>
 </section>
@@ -43,11 +43,12 @@ async function searchNow(button){
     setFeedback(el,'Search finished. Refreshing candidates…','success');setTimeout(()=>location.reload(),500);
   }catch(e){setFeedback(el,`Search could not finish: ${e.message}`,'error');setBusy(button,false);}
 }
-async function searchArchive(button){
-  const el=document.getElementById('result');setFeedback(el,'Starting Internet Archive search…','loading');setBusy(button,true,'Searching…');
+async function searchMusicdl(button){
+  const el=document.getElementById('result');setFeedback(el,'Starting QQ Music and NetEase search…','loading');setBusy(button,true,'Searching…');
   try{
-    await readResponse(await fetch('/api/tracks/'+TID+'/search-internet-archive',{method:'POST'}));
-    setFeedback(el,'Searching Internet Archive… results will appear when ready.','loading');
+    const query=document.getElementById('custom-q').value.trim();
+    await readResponse(await fetch('/api/tracks/'+TID+'/search-musicdl',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})}));
+    setFeedback(el,'Searching QQ Music and NetEase… results will appear when ready.','loading');
     await pollTrack(TID, el);
     setFeedback(el,'Search finished. Refreshing candidates…','success');setTimeout(()=>location.reload(),500);
   }catch(e){setFeedback(el,`Search could not finish: ${e.message}`,'error');setBusy(button,false);}

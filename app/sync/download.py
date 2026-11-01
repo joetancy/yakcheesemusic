@@ -15,9 +15,11 @@ def _downloader_for(provider: str | None):
     if prov == "deezer":
         from app.downloaders.streamrip_deezer import DeezerDownloader
         return DeezerDownloader()
-    if prov == "internet_archive":
-        from app.downloaders.internet_archive import InternetArchiveDownloader
-        return InternetArchiveDownloader()
+    if prov == "musicdl":
+        from app.downloaders.musicdl import MusicdlDownloader
+        return MusicdlDownloader()
+    if prov not in ("", "soulseek"):
+        raise ValueError(f"Unsupported download provider: {prov}")
     from app.downloaders.slskd import SlskdDownloader
     return SlskdDownloader()
 
@@ -26,8 +28,8 @@ def _source_url(provider: str | None, provider_track_id: str) -> str:
     prov = (provider or "").lower()
     if prov in ("qobuz", "deezer"):
         return f"{prov}://{provider_track_id}"
-    if prov == "internet_archive":
-        return f"https://archive.org/details/{provider_track_id.split('|', 1)[0]}"
+    if prov == "musicdl":
+        return f"musicdl://{provider_track_id}"
     return f"soulseek://{provider_track_id}"
 
 
@@ -48,6 +50,11 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
             cand = db.get(DownloadCandidate, candidate_id)
             if not cand:
                 continue
+            from app.db.settings_store import source_enabled
+            source = {"soulseek": "slskd", "musicdl": "musicdl"}.get(cand.provider)
+            if source and not source_enabled(db, source):
+                log.info("candidate %s skipped: %s disabled", candidate_id, source)
+                continue
             result = SearchResult(provider=cand.provider,
                                   provider_track_id=cand.provider_track_id,
                                   title=cand.title, artist=cand.artist, album=cand.album,
@@ -56,7 +63,7 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
             try:
                 prov = (cand.provider or "").lower()
                 dest = f"/downloads/{prov}-{track_id}" \
-                    if prov in ("qobuz", "deezer", "internet_archive") else "/downloads"
+                    if prov in ("qobuz", "deezer", "musicdl") else "/downloads"
                 tmp = Path(_downloader_for(cand.provider).download(result, dest))
             except Exception as e:
                 log.warning("candidate %s failed (%s), trying next", candidate_id, e)

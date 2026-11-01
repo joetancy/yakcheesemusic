@@ -25,6 +25,21 @@ def search_candidates(track: Track, auto: float = 90.0,
     return match_candidates(source, dicts, auto, conditional, review)
 
 
+def search_musicdl_candidates(track: Track, auto: float = 90.0,
+                              conditional: float = 80.0, review: float = 65.0) -> list[dict]:
+    """Search musicdl and score candidates with the configured thresholds."""
+    from app.downloaders.musicdl import MusicdlDownloader
+    results = MusicdlDownloader().search(track.title, track.artist, track.album or "")
+    source = {"title": track.title, "artist": track.artist, "album": track.album or "",
+              "duration_ms": track.duration_ms, "isrc": track.isrc}
+    candidates = [{"provider": r.provider, "provider_track_id": r.provider_track_id,
+                   "title": r.title, "artist": r.artist, "album": r.album,
+                   "duration_ms": r.duration_ms, "quality": r.quality,
+                   "format": r.format, "size": r.size, "source_url": r.source_url}
+                  for r in results]
+    return match_candidates(source, candidates, auto, conditional, review)
+
+
 def save_candidates(db: Session, track_id: int, ranked: list[dict]) -> dict[str, int]:
     """Replace candidates; return {provider_track_id: candidate_id} for all saved.
 

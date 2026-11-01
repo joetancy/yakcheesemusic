@@ -123,6 +123,8 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
         "match_conditional": settings_store.get_setting(db, "match_conditional"),
         "match_review": settings_store.get_setting(db, "match_review"),
         "preferred_format": settings_store.get_setting(db, "preferred_format"),
+        "source_slskd_enabled": settings_store.source_enabled(db, "slskd"),
+        "source_musicdl_enabled": settings_store.source_enabled(db, "musicdl"),
         "music_dir": settings.music_dir,
         "replaygain_target": settings.replaygain_target_lufs,
         "removed_policy": settings.removed_track_policy,

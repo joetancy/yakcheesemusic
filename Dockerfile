@@ -18,6 +18,8 @@ COPY tests ./tests
 
 RUN pip install --no-cache-dir -e . \
  && pip install --no-cache-dir pytest pytest-asyncio \
+ && python -m venv /opt/musicdl \
+ && /opt/musicdl/bin/pip install --no-cache-dir musicdl==2.14.2 \
  && playwright install --with-deps chromium
 
 VOLUME ["/app/data", "/music"]

@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db.models import Setting
 
-KEYS = ("match_auto", "match_conditional", "match_review", "preferred_format")
+KEYS = ("match_auto", "match_conditional", "match_review", "preferred_format",
+        "source_slskd_enabled", "source_musicdl_enabled")
 
 
 def _config_default(key: str) -> str:
@@ -25,6 +26,10 @@ def get_float(db: Session, key: str) -> float:
         return float(get_setting(db, key))
     except (TypeError, ValueError):
         return float(_config_default(key))
+
+
+def source_enabled(db: Session, source: str) -> bool:
+    return get_setting(db, f"source_{source}_enabled").lower() == "true"
 
 
 def get_thresholds(db: Session) -> tuple[float, float, float]:
@@ -48,6 +53,10 @@ def all_effective(db: Session) -> dict:
 
 def validate(key: str, value: str, current: dict) -> float | str:
     """Return parsed value or raise ValueError."""
+    if key in ("source_slskd_enabled", "source_musicdl_enabled"):
+        if isinstance(value, bool):
+            return value
+        raise ValueError(f"{key} must be a boolean")
     if key == "preferred_format":
         v = str(value).lower()
         if v not in ("original", "mp3"):

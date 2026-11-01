@@ -76,6 +76,7 @@ async function pollTrack(tid, el, timeoutMs){
     catch(e){ throw new Error('request failed: '+e); }
     if(!r.ok) throw new Error('Could not check track status. Please try again.');
     const j=await r.json();
+    if(j.status==='failed') throw new Error('Search failed. Check the server logs and try again.');
     if(j.status!=='searching'){ if(el) setFeedback(el,`Search ${j.status}.`,'success'); return j.status; }
     if(el) setFeedback(el,'Searching…','loading');
     if(Date.now()>end) throw new Error('search timed out');

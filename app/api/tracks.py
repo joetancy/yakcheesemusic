@@ -51,6 +51,9 @@ def search_track(track_id: int, payload: dict | None = None,
         raise HTTPException(status_code=404, detail="Not found")
     if t.status == "searching":
         raise HTTPException(status_code=409, detail="Search already running")
+    from app.db.settings_store import source_enabled
+    if not source_enabled(db, "slskd"):
+        raise HTTPException(status_code=403, detail="Soulseek is disabled in Settings.")
     custom_query = ((payload or {}).get("query") or "").strip() or None
     force_review = (payload or {}).get("manual_review") is True
     t.status = "searching"
@@ -61,9 +64,9 @@ def search_track(track_id: int, payload: dict | None = None,
     return {"ok": True, "status": "searching"}
 
 
-@router.post("/{track_id}/search-internet-archive")
-def search_internet_archive(track_id: int, db: Session = Depends(get_db)):
-    """Manually replace current candidates with Archive.org matches."""
+@router.post("/{track_id}/search-musicdl")
+def search_musicdl(track_id: int, payload: dict | None = None, db: Session = Depends(get_db)):
+    """Search QQ Music and NetEase for manual review."""
     import threading
     from fastapi import HTTPException
     t = db.get(Track, track_id)
@@ -71,19 +74,23 @@ def search_internet_archive(track_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Not found")
     if t.status == "searching":
         raise HTTPException(status_code=409, detail="Search already running")
+    from app.db.settings_store import source_enabled
+    if not source_enabled(db, "musicdl"):
+        raise HTTPException(status_code=403, detail="Musicdl is disabled in Settings.")
     t.status = "searching"
     db.commit()
-    threading.Thread(target=_run_internet_archive_search, args=(track_id,),
+    query = ((payload or {}).get("query") or "").strip() or None
+    threading.Thread(target=_run_musicdl_search, args=(track_id, query),
                      daemon=True).start()
     return {"ok": True, "status": "searching"}
 
 
-def _run_internet_archive_search(track_id: int, session_factory=None) -> None:
-    """Background Archive search; replace candidates and never auto-download."""
+def _run_musicdl_search(track_id: int, query: str | None = None, session_factory=None) -> None:
+    """Background musicdl search; results always require manual review."""
     import logging
     from app.db.database import SessionLocal
     from app.db.models import DownloadCandidate
-    from app.downloaders.internet_archive import InternetArchiveDownloader
+    from app.downloaders.musicdl import MusicdlDownloader
     from app.matching.matcher import match_candidates
 
     log = logging.getLogger("yakcheesemusic")
@@ -92,8 +99,7 @@ def _run_internet_archive_search(track_id: int, session_factory=None) -> None:
         t = db.get(Track, track_id)
         if not t:
             return
-        results = InternetArchiveDownloader().search(
-            t.title, t.artist, t.album or "")
+        results = MusicdlDownloader().search(t.title, t.artist, t.album or "", query=query)
         from app.db.settings_store import get_thresholds
         auto, conditional, review = get_thresholds(db)
         source = {"title": t.title, "artist": t.artist, "album": t.album or "",
@@ -121,16 +127,16 @@ def _run_internet_archive_search(track_id: int, session_factory=None) -> None:
                 rejected_reason=previously_rejected.get(c["provider_track_id"])))
         t.status = "needs_review"
         db.commit()
-        log.info("track=%s action=internet-archive-search status=done results=%s",
+        log.info("track=%s action=musicdl-search status=done results=%s",
                  track_id, len(ranked))
     except Exception as e:
-        log.warning("track=%s action=internet-archive-search status=error error=%s",
+        log.warning("track=%s action=musicdl-search status=error error=%s",
                     track_id, e)
         try:
             db.rollback()
             t = db.get(Track, track_id)
             if t:
-                t.status = "needs_review"
+                t.status = "failed"
                 db.commit()
         except Exception:
             db.rollback()
@@ -205,9 +211,13 @@ def download_track(track_id: int, payload: dict | None = None, db: Session = Dep
                           .order_by(DownloadCandidate.score.desc())).scalars().first()
         if not cand:
             raise HTTPException(status_code=404, detail="No candidates — search first")
+    from app.db.settings_store import source_enabled
+    source = {"soulseek": "slskd", "musicdl": "musicdl"}.get(cand.provider)
+    if source and not source_enabled(db, source):
+        raise HTTPException(status_code=403, detail="This source is disabled in Settings.")
     cand.selected = True
     t.status = "downloading"
-    t.download_provider = "soulseek"
+    t.download_provider = cand.provider
     db.commit()
     # try the chosen candidate first, then the next-best as failover
     # (peers routinely go offline between search and download)

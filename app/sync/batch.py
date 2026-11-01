@@ -65,9 +65,9 @@ def search_one(session_factory, track_id: int) -> tuple[str, int, list[int]]:
     "download", "review", or "failed".
     """
     from app.db.models import DownloadCandidate, Track
-    from app.db.settings_store import get_thresholds
+    from app.db.settings_store import get_thresholds, source_enabled
     from app.sync.search import rejected_keys
-    from app.sync.search import search_candidates, save_candidates
+    from app.sync.search import search_candidates, search_musicdl_candidates, save_candidates
 
     db = session_factory()
     try:
@@ -78,19 +78,27 @@ def search_one(session_factory, track_id: int) -> tuple[str, int, list[int]]:
         db.commit()
         try:
             auto, conditional, review = get_thresholds(db)
-            ranked = search_candidates(t, auto, conditional, review)
+            ranked = (search_candidates(t, auto, conditional, review)
+                      if source_enabled(db, "slskd") else [])
         except Exception as e:
             log.warning("track=%s action=search status=error error=%s", track_id, e)
-            t.status = "failed"
-            db.commit()
-            return "failed", track_id, []
+            ranked = []
+        rej = rejected_keys(db, track_id)
+        for c in ranked:
+            c["rejected"] = c["provider_track_id"] in rej
+        if not any(not c["rejected"] for c in ranked) and source_enabled(db, "musicdl"):
+            try:
+                musicdl_ranked = search_musicdl_candidates(t, auto, conditional, review)
+                if musicdl_ranked:
+                    ranked = musicdl_ranked
+                    for c in ranked:
+                        c["rejected"] = c["provider_track_id"] in rej
+            except Exception as e:
+                log.warning("track=%s action=musicdl-search status=error error=%s", track_id, e)
         if not ranked:
             t.status = "needs_review"
             db.commit()
             return "review", track_id, []
-        rej = rejected_keys(db, track_id)
-        for c in ranked:
-            c["rejected"] = c["provider_track_id"] in rej
         save_candidates(db, t.id, ranked)
         action, pick = decide(ranked, auto, conditional, review)
         if action == "review" or not pick:
@@ -110,7 +118,7 @@ def search_one(session_factory, track_id: int) -> tuple[str, int, list[int]]:
                   [c.id for c in rows
                    if c.id != id_by_key[pick_key] and not c.rejected_reason][:7]
         t.status = "downloading"
-        t.download_provider = "soulseek"
+        t.download_provider = pick["provider"]
         db.commit()
         return "download", track_id, ordered
     finally:

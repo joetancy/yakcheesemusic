@@ -83,6 +83,81 @@ def test_settings_api_roundtrip(client):
     assert r.status_code == 422
 
 
+def test_musicdl_sync_fallback_downloads_confident_match(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.db.database import Base
+    from app.db.models import Track, DownloadCandidate
+    from app.sync.batch import search_one
+    import app.sync.search as search
+
+    engine = create_engine(f"sqlite:///{tmp_path}/fallback.db")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, future=True)
+    with factory() as db:
+        track = Track(title="T", artist="A", status="pending")
+        db.add(track)
+        db.commit()
+        tid = track.id
+    monkeypatch.setattr(search, "search_candidates", lambda *args: [])
+    musicdl = {**_cand(99, "auto"), "provider": "musicdl", "provider_track_id": "QQMusicClient|1"}
+    monkeypatch.setattr(search, "search_musicdl_candidates", lambda *args: [musicdl])
+    outcome, returned_id, candidate_ids = search_one(factory, tid)
+    assert outcome == "download" and returned_id == tid and len(candidate_ids) == 1
+    with factory() as db:
+        assert db.get(Track, tid).status == "downloading"
+        assert db.get(Track, tid).download_provider == "musicdl"
+        assert db.query(DownloadCandidate).filter_by(track_id=tid, provider="musicdl").count() == 1
+
+
+def test_musicdl_sync_uncertain_match_goes_to_review(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.db.database import Base
+    from app.db.models import Track
+    from app.sync.batch import search_one
+    import app.sync.search as search
+
+    engine = create_engine(f"sqlite:///{tmp_path}/uncertain.db")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, future=True)
+    with factory() as db:
+        track = Track(title="T", artist="A", status="pending")
+        db.add(track)
+        db.commit()
+        tid = track.id
+    monkeypatch.setattr(search, "search_candidates", lambda *args: [])
+    candidate = {**_cand(70, "needs_review"), "provider": "musicdl", "provider_track_id": "QQMusicClient|1"}
+    monkeypatch.setattr(search, "search_musicdl_candidates", lambda *args: [candidate])
+    assert search_one(factory, tid) == ("review", tid, [])
+
+
+def test_musicdl_sync_respects_disabled_source(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.db.database import Base
+    from app.db.models import Track
+    from app.db.settings_store import set_setting
+    from app.sync.batch import search_one
+    import app.sync.search as search
+
+    engine = create_engine(f"sqlite:///{tmp_path}/disabled.db")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, future=True)
+    with factory() as db:
+        track = Track(title="T", artist="A", status="pending")
+        db.add(track)
+        db.commit()
+        tid = track.id
+        set_setting(db, "source_slskd_enabled", "False")
+        set_setting(db, "source_musicdl_enabled", "False")
+    def unexpected(*args):
+        raise AssertionError("disabled source was searched")
+    monkeypatch.setattr(search, "search_candidates", unexpected)
+    monkeypatch.setattr(search, "search_musicdl_candidates", unexpected)
+    assert search_one(factory, tid) == ("review", tid, [])
+
+
 def test_decide_ignores_rejected():
     ranked = [_cand(95, "auto", "mp3"), _cand(92, "auto", "flac")]
     ranked[0]["rejected"] = True

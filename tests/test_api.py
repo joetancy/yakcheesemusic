@@ -83,6 +83,22 @@ def test_retry_all_resets_review_and_failed(seeded_client):
     assert seeded_client.get("/api/tracks", params={"status": "skipped"}).json()[0]["title"] == "D"
 
 
+def test_source_settings_disable_manual_searches(seeded_client):
+    settings = seeded_client.get('/api/settings').json()
+    assert settings['source_slskd_enabled'] is True
+    assert settings['source_musicdl_enabled'] is True
+    response = seeded_client.patch('/api/settings', json={
+        'source_slskd_enabled': False, 'source_musicdl_enabled': False})
+    assert response.status_code == 200
+    settings = seeded_client.get('/api/settings').json()
+    assert settings['source_slskd_enabled'] is False
+    assert settings['source_musicdl_enabled'] is False
+    tid = seeded_client.get('/api/tracks', params={'status': 'needs_review'}).json()[0]['id']
+    assert seeded_client.post(f'/api/tracks/{tid}/search').status_code == 403
+    assert seeded_client.post(f'/api/tracks/{tid}/search-musicdl').status_code == 403
+    assert seeded_client.patch('/api/settings', json={'source_slskd_enabled': 'yes'}).status_code == 422
+
+
 def test_retry_single_track(seeded_client):
     tid = seeded_client.get("/api/tracks", params={"status": "failed"}).json()[0]["id"]
     r = seeded_client.post(f"/api/tracks/{tid}/retry")
