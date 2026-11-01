@@ -19,11 +19,10 @@
 {% if search_query %}<a href="/playlists/{{ playlist.id }}">Clear</a>{% endif %}
 </form>
 <p class="muted">{{ total_tracks }} track{% if total_tracks != 1 %}s{% endif %}{% if page_count > 1 %} · Page {{ page }} of {{ page_count }}{% endif %}</p>
-<p class="muted">Scroll the table horizontally to see all track details and actions.</p>
-<div class="table-container track-table-container" role="region" aria-label="Playlist tracks; scroll horizontally to see all columns" tabindex="0"><table class="table track-table"><thead><tr><th data-sort="num">#</th><th>Title</th><th>Artist</th><th>Album</th><th>Status</th><th>Source</th><th>File</th><th>Type</th><th>Quality</th><th data-sort="none">Actions</th></tr></thead><tbody>
+<div class="table-container track-table-container"><table class="table track-table"><thead><tr><th data-sort="num">#</th><th>Title</th><th>Artist</th><th>Album</th><th>Status</th><th>Source</th><th>File</th><th>Type</th><th>Quality</th><th data-sort="none">Actions</th></tr></thead><tbody>
 {% for m in memberships %}<tr>
 <td data-label="#">{{ m.position + 1 }}</td>
-<td data-label="Title">{{ m.source_title }}</td>
+<td data-label="Title">{{ m.source_title }}<span class="mobile-track-artist">{{ m.source_artist }}</span></td>
 <td data-label="Artist">{{ m.source_artist }}</td>
 <td data-label="Album">{{ (m.track.album if m.track and m.track.album else m.source_album) or "—" }}</td>
 <td data-label="Status">{{ m.track.status if m.track else "?" }}</td>
