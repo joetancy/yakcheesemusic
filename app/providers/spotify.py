@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import re
 import time
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
@@ -152,8 +153,11 @@ class SpotifyProvider(PlaylistProvider):
         pid = extract_playlist_id(url)
         if not pid:
             raise ValueError(f"Not a Spotify playlist URL: {url}")
+        # The Web API does not honor the playlist page's locale query params.
+        # Prefer the public web path when localization was explicitly supplied.
+        has_locale = bool(parse_qs(urlsplit(url).query).get("locale"))
         try:
-            if _get_api_token():
+            if not has_locale and _get_api_token():
                 try:
                     return _fetch_via_api(pid)
                 except Exception as e:
@@ -165,8 +169,6 @@ class SpotifyProvider(PlaylistProvider):
             logging.getLogger("yakcheesemusic").warning(
                 "Spotify API unavailable (%s), trying web harvest", e)
         try:
-            # Keep the original Spotify URL intact: locale/share query
-            # parameters may affect localized metadata returned by web harvest.
             return SpotifyWebProvider().get_playlist(url)
         except Exception as e:
             logging.getLogger("yakcheesemusic").warning(

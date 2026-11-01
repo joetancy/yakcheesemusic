@@ -105,10 +105,9 @@ def _page(session: httpx.Client, headers: dict, payload: dict) -> dict:
 
 
 def fetch_full_playlist(url: str, playlist_id: str) -> ProviderPlaylist:
-    # Canonical URL only: share links with ?si= / pi= / pt= params get
-    # login-walled by Spotify, which starves the harvest of requests.
-    canonical = f"https://open.spotify.com/playlist/{playlist_id}"
-    harvested = _harvest(canonical, playlist_id)
+    # Keep the submitted URL intact. Query parameters such as locale=zh-CN
+    # influence Spotify's localized metadata response.
+    harvested = _harvest(url, playlist_id)
     headers = {"authorization": harvested["headers"]["authorization"],
                "client-token": harvested["headers"]["client-token"],
                "spotify-app-version": harvested["headers"].get("spotify-app-version", ""),
@@ -148,7 +147,7 @@ def fetch_full_playlist(url: str, playlist_id: str) -> ProviderPlaylist:
             if len(items) < limit:
                 break
     return ProviderPlaylist(provider="spotify", provider_playlist_id=playlist_id,
-                            name=name, url=canonical,
+                            name=name, url=url,
                             track_count=total if total is not None else len(tracks),
                             tracks=tracks, complete=True)
 

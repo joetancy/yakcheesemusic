@@ -74,7 +74,7 @@ def test_parse_pathfinder_skips_episodes():
     assert _parse_item({"itemV2": {"data": {"__typename": "Episode"}}}, 0) is None
 
 
-def test_fetch_uses_canonical_url(monkeypatch):
+def test_fetch_preserves_locale_query_params(monkeypatch):
     import app.providers.spotify_web as web
     seen = {}
 
@@ -93,11 +93,11 @@ def test_fetch_uses_canonical_url(monkeypatch):
 
     monkeypatch.setattr(web, "_harvest", fake_harvest)
     monkeypatch.setattr(web, "_page", fake_page)
-    pl = web.fetch_full_playlist(
-        "https://open.spotify.com/playlist/abc123?si=xyz&utm_source=copy-link",
-        "abc123")
-    assert seen["url"] == "https://open.spotify.com/playlist/abc123"
-    assert pl.url == "https://open.spotify.com/playlist/abc123"
+    url = ("https://open.spotify.com/playlist/abc123?locale=zh-CN"
+           "&utm_source=chatgpt.com")
+    pl = web.fetch_full_playlist(url, "abc123")
+    assert seen["url"] == url
+    assert pl.url == url
     assert pl.complete is True
 
 
