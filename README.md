@@ -1,3 +1,5 @@
+![Hero image](assets/hero.png)
+
 # yakcheesemusic
 
 Self-hosted playlist sync: Spotify playlists are the source of truth, Soulseek (via slskd) is the download layer.
