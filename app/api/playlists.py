@@ -13,20 +13,31 @@ router = APIRouter(prefix="/api/playlists", tags=["playlists"])
 @router.get("")
 def list_playlists(db: Session = Depends(get_db)):
     rows = db.execute(select(Playlist)).scalars().all()
-    return [{"id": p.id, "name": p.name, "provider": p.provider, "url": p.url,
-             "enabled": p.enabled, "sync_enabled": p.sync_enabled,
-             "sync_interval": p.sync_interval} for p in rows]
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "provider": p.provider,
+            "url": p.url,
+            "enabled": p.enabled,
+            "sync_enabled": p.sync_enabled,
+            "sync_interval": p.sync_interval,
+        }
+        for p in rows
+    ]
 
 
 @router.post("")
 def create_playlist(payload: dict, db: Session = Depends(get_db)):
-    from app.providers.spotify import SpotifyProvider, extract_playlist_id
+    from app.providers.spotify import SpotifyProvider
 
     url = payload.get("url", "")
     if not SpotifyProvider().validate_url(url):
         from fastapi import HTTPException
-        raise HTTPException(status_code=400,
-                            detail="Only Spotify playlist URLs are supported")
+
+        raise HTTPException(
+            status_code=400, detail="Only Spotify playlist URLs are supported"
+        )
     # Keep the submitted share URL (including query parameters) for display and
     # future use. The Spotify provider extracts the playlist ID for API reads.
     url = url.strip()
@@ -40,6 +51,7 @@ def create_playlist(payload: dict, db: Session = Depends(get_db)):
 @router.get("/{playlist_id}")
 def get_playlist(playlist_id: int, db: Session = Depends(get_db)):
     from fastapi import HTTPException
+
     p = db.get(Playlist, playlist_id)
     if not p:
         raise HTTPException(status_code=404, detail="Not found")
@@ -49,6 +61,7 @@ def get_playlist(playlist_id: int, db: Session = Depends(get_db)):
 @router.patch("/{playlist_id}")
 def update_playlist(playlist_id: int, payload: dict, db: Session = Depends(get_db)):
     from fastapi import HTTPException
+
     p = db.get(Playlist, playlist_id)
     if not p:
         raise HTTPException(status_code=404, detail="Not found")
@@ -60,13 +73,15 @@ def update_playlist(playlist_id: int, payload: dict, db: Session = Depends(get_d
 
 
 @router.delete("/{playlist_id}")
-def delete_playlist(playlist_id: int, delete_files: bool = False,
-                    db: Session = Depends(get_db)):
+def delete_playlist(
+    playlist_id: int, delete_files: bool = False, db: Session = Depends(get_db)
+):
     from fastapi import HTTPException
     from sqlalchemy import select, func
     from app.config import get_settings
     from app.db.models import PlaylistTrack, Track
     from app.sync.prune import delete_track_file
+
     p = db.get(Playlist, playlist_id)
     if not p:
         raise HTTPException(status_code=404, detail="Not found")
@@ -87,8 +102,14 @@ def delete_playlist(playlist_id: int, delete_files: bool = False,
     db.delete(p)
     db.flush()
     for tid in set(track_ids):
-        refs = db.execute(select(func.count(PlaylistTrack.id)).where(
-            PlaylistTrack.track_id == tid)).scalar() or 0
+        refs = (
+            db.execute(
+                select(func.count(PlaylistTrack.id)).where(
+                    PlaylistTrack.track_id == tid
+                )
+            ).scalar()
+            or 0
+        )
         if refs == 0:
             t = db.get(Track, tid)
             # drop the row when its file is gone (or it never downloaded);
@@ -100,27 +121,35 @@ def delete_playlist(playlist_id: int, delete_files: bool = False,
 
 
 @router.delete("/{playlist_id}/tracks/{track_id}/file")
-def delete_playlist_track_file(playlist_id: int, track_id: int,
-                               db: Session = Depends(get_db)):
+def delete_playlist_track_file(
+    playlist_id: int, track_id: int, db: Session = Depends(get_db)
+):
     """Remove one downloaded file from a playlist and queue the track again."""
     import os
     from fastapi import HTTPException
     from sqlalchemy import select
     from app.config import get_settings
     from app.db.models import PlaylistTrack, Track
-    from app.sync.prune import (delete_track_file, path_shared,
-                                track_in_use_elsewhere)
+    from app.sync.prune import delete_track_file, path_shared, track_in_use_elsewhere
 
     p = db.get(Playlist, playlist_id)
     if not p:
         raise HTTPException(status_code=404, detail="Playlist not found")
-    membership = db.execute(select(PlaylistTrack).where(
-        PlaylistTrack.playlist_id == playlist_id,
-        PlaylistTrack.track_id == track_id,
-        PlaylistTrack.active.is_(True))).scalars().first()
+    membership = (
+        db.execute(
+            select(PlaylistTrack).where(
+                PlaylistTrack.playlist_id == playlist_id,
+                PlaylistTrack.track_id == track_id,
+                PlaylistTrack.active.is_(True),
+            )
+        )
+        .scalars()
+        .first()
+    )
     if not membership:
-        raise HTTPException(status_code=404,
-                            detail="Track is not active in this playlist")
+        raise HTTPException(
+            status_code=404, detail="Track is not active in this playlist"
+        )
     track = db.get(Track, track_id)
     if not track or not track.local_path:
         raise HTTPException(status_code=404, detail="Downloaded file not found")
@@ -137,19 +166,23 @@ def delete_playlist_track_file(playlist_id: int, track_id: int,
     except ValueError:
         inside_library = False
     if not inside_library or stored_path == music_dir or local_path == music_dir:
-        raise HTTPException(status_code=400,
-                            detail="File path is outside the music library")
+        raise HTTPException(
+            status_code=400, detail="File path is outside the music library"
+        )
 
     if track_in_use_elsewhere(db, track.id, playlist_id) or path_shared(
-            db, track.local_path, track.id):
-        raise HTTPException(status_code=409,
-                            detail="File is still used by another playlist or track")
+        db, track.local_path, track.id
+    ):
+        raise HTTPException(
+            status_code=409, detail="File is still used by another playlist or track"
+        )
 
     if os.path.exists(track.local_path):
         deleted = delete_track_file(db, track, playlist_id, music_dir)
         if not deleted:
-            raise HTTPException(status_code=500,
-                                detail="Could not delete the downloaded file")
+            raise HTTPException(
+                status_code=500, detail="Could not delete the downloaded file"
+            )
 
     track.local_path = None
     track.status = "pending"
@@ -173,21 +206,32 @@ def scan_playlist_route(playlist_id: int, db: Session = Depends(get_db)):
     from app.db.database import SessionLocal
     from app.db.models import SyncJob
     from app.sync.scan import run_scan_job
+
     p = db.get(Playlist, playlist_id)
     if not p:
         raise HTTPException(status_code=404, detail="Not found")
-    running = db.execute(select(SyncJob).where(
-        SyncJob.playlist_id == playlist_id, SyncJob.status == "running",
-        SyncJob.finished_at.is_(None))).scalars().first()
+    running = (
+        db.execute(
+            select(SyncJob).where(
+                SyncJob.playlist_id == playlist_id,
+                SyncJob.status == "running",
+                SyncJob.finished_at.is_(None),
+            )
+        )
+        .scalars()
+        .first()
+    )
     if running:
-        raise HTTPException(status_code=409,
-                            detail=f"Sync already running (job {running.id})")
+        raise HTTPException(
+            status_code=409, detail=f"Sync already running (job {running.id})"
+        )
     job = SyncJob(playlist_id=playlist_id, status="running")
     db.add(job)
     db.commit()
     db.refresh(job)
-    threading.Thread(target=run_scan_job,
-                     args=(SessionLocal, playlist_id, job.id), daemon=True).start()
+    threading.Thread(
+        target=run_scan_job, args=(SessionLocal, playlist_id, job.id), daemon=True
+    ).start()
     return {"ok": True, "job_id": job.id}
 
 
@@ -196,26 +240,39 @@ def playlist_tracks(playlist_id: int, db: Session = Depends(get_db)):
     from fastapi import HTTPException
     from sqlalchemy import select
     from app.db.models import PlaylistTrack
+
     p = db.get(Playlist, playlist_id)
     if not p:
         raise HTTPException(status_code=404, detail="Not found")
-    rows = db.execute(
-        select(PlaylistTrack).where(PlaylistTrack.playlist_id == playlist_id)
-        .order_by(PlaylistTrack.position)).scalars().all()
+    rows = (
+        db.execute(
+            select(PlaylistTrack)
+            .where(PlaylistTrack.playlist_id == playlist_id)
+            .order_by(PlaylistTrack.position)
+        )
+        .scalars()
+        .all()
+    )
     out = []
     for m in rows:
         t = m.track
-        out.append({"position": m.position, "provider_track_id": m.provider_track_id,
-                    "source_title": m.source_title, "source_artist": m.source_artist,
-                    "source_album": m.source_album,
-                    "active": m.active,
-                    "track_id": t.id if t else None,
-                    "status": t.status if t else None,
-                    "album": (t.album or None) if t else None,
-                    "format": t.format if t else None,
-                    "quality": t.quality_label if t else None,
-                    "local_path": t.local_path if t else None,
-                    "download_provider": t.download_provider if t else None})
+        out.append(
+            {
+                "position": m.position,
+                "provider_track_id": m.provider_track_id,
+                "source_title": m.source_title,
+                "source_artist": m.source_artist,
+                "source_album": m.source_album,
+                "active": m.active,
+                "track_id": t.id if t else None,
+                "status": t.status if t else None,
+                "album": (t.album or None) if t else None,
+                "format": t.format if t else None,
+                "quality": t.quality_label if t else None,
+                "local_path": t.local_path if t else None,
+                "download_provider": t.download_provider if t else None,
+            }
+        )
     return out
 
 
@@ -227,21 +284,32 @@ def sync_playlist_route(playlist_id: int, db: Session = Depends(get_db)):
     from app.db.database import SessionLocal
     from app.db.models import SyncJob
     from app.sync.batch import run_playlist_sync
+
     p = db.get(Playlist, playlist_id)
     if not p:
         raise HTTPException(status_code=404, detail="Not found")
-    running = db.execute(select(SyncJob).where(
-        SyncJob.playlist_id == playlist_id, SyncJob.status == "running",
-        SyncJob.finished_at.is_(None))).scalars().first()
+    running = (
+        db.execute(
+            select(SyncJob).where(
+                SyncJob.playlist_id == playlist_id,
+                SyncJob.status == "running",
+                SyncJob.finished_at.is_(None),
+            )
+        )
+        .scalars()
+        .first()
+    )
     if running:
-        raise HTTPException(status_code=409,
-                            detail=f"Sync already running (job {running.id})")
+        raise HTTPException(
+            status_code=409, detail=f"Sync already running (job {running.id})"
+        )
     job = SyncJob(playlist_id=playlist_id, status="running")
     db.add(job)
     db.commit()
     db.refresh(job)
-    threading.Thread(target=run_playlist_sync,
-                     args=(SessionLocal, playlist_id, job.id), daemon=True).start()
+    threading.Thread(
+        target=run_playlist_sync, args=(SessionLocal, playlist_id, job.id), daemon=True
+    ).start()
     return {"ok": True, "job_id": job.id}
 
 
@@ -250,6 +318,7 @@ def generate_playlist_file(playlist_id: int, db: Session = Depends(get_db)):
     from fastapi import HTTPException
     from app.config import get_settings
     from app.sync.m3u import generate_m3u
+
     p = db.get(Playlist, playlist_id)
     if not p:
         raise HTTPException(status_code=404, detail="Not found")

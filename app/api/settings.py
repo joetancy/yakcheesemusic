@@ -30,6 +30,7 @@ def get_settings_route(db: Session = Depends(get_db)):
 @router.patch("")
 def update_settings(payload: dict, db: Session = Depends(get_db)):
     from fastapi import HTTPException
+
     current = settings_store.all_effective(db)
     updated = {}
     for key in settings_store.KEYS:
@@ -42,8 +43,18 @@ def update_settings(payload: dict, db: Session = Depends(get_db)):
             current[key] = str(v)
             updated[key] = v
     if not updated:
-        raise HTTPException(status_code=422,
-                            detail=f"No tunable settings in payload (keys: {list(settings_store.KEYS)})")
-    return {"ok": True, "updated": updated,
-            "bands": f"auto >= {current['match_auto']}, conditional >= {current['match_conditional']}, "
-                     f"review >= {current['match_review']}, else reject"}
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"No tunable settings in payload (keys: {list(settings_store.KEYS)})"
+            ),
+        )
+    return {
+        "ok": True,
+        "updated": updated,
+        "bands": (
+            f"auto >= {current['match_auto']}, "
+            f"conditional >= {current['match_conditional']}, "
+            f"review >= {current['match_review']}, else reject"
+        ),
+    }

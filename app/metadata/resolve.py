@@ -4,13 +4,24 @@ Authority: catalogue (playlist-derived identity) for artist/title;
 for album: embedded tags -> sharer's folder name -> playlist album.
 Embedded junk ("Unknown Album", empties) is ignored, never trusted.
 """
+
 from __future__ import annotations
 
-import os
 import re
 
-JUNK = {"", "unknown", "unknown artist", "unknown album", "untitled",
-        "track", "audio", "-", "?", "none", "n/a"}
+JUNK = {
+    "",
+    "unknown",
+    "unknown artist",
+    "unknown album",
+    "untitled",
+    "track",
+    "audio",
+    "-",
+    "?",
+    "none",
+    "n/a",
+}
 
 
 def is_junk(value: str | None) -> bool:
@@ -44,6 +55,10 @@ def resolve_metadata(catalogue: dict, embedded: dict, remote_path: str) -> dict:
         album = None
     track_no = embedded.get("track_number") or catalogue.get("track_number")
     year = embedded.get("year") or catalogue.get("year")
-    return {"artist": artist.strip(), "title": title.strip(),
-            "album": (album or "Unknown Album").strip(),
-            "track_number": track_no, "year": year}
+    return {
+        "artist": artist.strip(),
+        "title": title.strip(),
+        "album": (album or "Unknown Album").strip(),
+        "track_number": track_no,
+        "year": year,
+    }

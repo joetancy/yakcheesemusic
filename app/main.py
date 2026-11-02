@@ -1,4 +1,5 @@
 """FastAPI application entrypoint."""
+
 from __future__ import annotations
 
 import logging
@@ -41,14 +42,20 @@ async def lifespan(app: FastAPI):
     # recover from unclean shutdowns: jobs/threads died with the container
     from sqlalchemy import update
     from app.db.database import SessionLocal
-    from app.db.models import SyncJob, Track
+    from app.db.models import Track
+
     db = SessionLocal()
     try:
-        db.execute(update(SyncJob).where(SyncJob.status == "running",
-                                         SyncJob.finished_at.is_(None))
-                   .values(status="interrupted", finished_at=_now()))
-        db.execute(update(Track).where(Track.status.in_(
-            ["downloading", "searching", "processing"])).values(status="pending"))
+        db.execute(
+            update(SyncJob)
+            .where(SyncJob.status == "running", SyncJob.finished_at.is_(None))
+            .values(status="interrupted", finished_at=_now())
+        )
+        db.execute(
+            update(Track)
+            .where(Track.status.in_(["downloading", "searching", "processing"]))
+            .values(status="pending")
+        )
         db.commit()
     finally:
         db.close()
@@ -70,6 +77,7 @@ async def no_cache_static(request, call_next):
         response.headers["Cache-Control"] = "no-store"
     return response
 
+
 app.include_router(playlists_api.router)
 app.include_router(tracks_api.router)
 app.include_router(sync_api.router)
@@ -84,125 +92,197 @@ def health():
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
     from app.api.sync import build_stats
+
     s = build_stats(db)
     playlists = db.execute(select(Playlist).limit(50)).scalars().all()
-    return templates.TemplateResponse(request, "index.html", {
-        "n_playlists": s["playlists"], "n_tracks": s["tracks"],
-        "n_failed": s["by_status"].get("failed", 0),
-        "n_review": s["by_status"].get("needs_review", 0),
-        "by_status": s["by_status"], "downloading": s["downloading"],
-        "searching": s["searching"], "recent": s["recent"],
-        "jobs": s["jobs"], "progress": s["progress"],
-        "last_job": s["last_job"], "playlists": playlists,
-        "music_dir": settings.music_dir,
-    })
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {
+            "n_playlists": s["playlists"],
+            "n_tracks": s["tracks"],
+            "n_failed": s["by_status"].get("failed", 0),
+            "n_review": s["by_status"].get("needs_review", 0),
+            "by_status": s["by_status"],
+            "downloading": s["downloading"],
+            "searching": s["searching"],
+            "recent": s["recent"],
+            "jobs": s["jobs"],
+            "progress": s["progress"],
+            "last_job": s["last_job"],
+            "playlists": playlists,
+            "music_dir": settings.music_dir,
+        },
+    )
 
 
 @app.get("/playlists", response_class=HTMLResponse)
 def playlists_page(request: Request, db: Session = Depends(get_db)):
     from app.db.models import PlaylistTrack
+
     playlists = db.execute(select(Playlist)).scalars().all()
     progress = {}
     for p in playlists:
-        rows = db.execute(select(PlaylistTrack).where(
-            PlaylistTrack.playlist_id == p.id, PlaylistTrack.active.is_(True))).scalars().all()
+        rows = (
+            db.execute(
+                select(PlaylistTrack).where(
+                    PlaylistTrack.playlist_id == p.id, PlaylistTrack.active.is_(True)
+                )
+            )
+            .scalars()
+            .all()
+        )
         done = sum(1 for m in rows if m.track and m.track.status == "completed")
         from app.sync.library import playlist_usage, human_size
+
         size_bytes, _ = playlist_usage(db, p.id)
-        progress[p.id] = {"total": len(rows), "done": done,
-                          "size": human_size(size_bytes)}
-    return templates.TemplateResponse(request, "playlists.html",
-                                       {"playlists": playlists, "progress": progress})
+        progress[p.id] = {
+            "total": len(rows),
+            "done": done,
+            "size": human_size(size_bytes),
+        }
+    return templates.TemplateResponse(
+        request, "playlists.html", {"playlists": playlists, "progress": progress}
+    )
 
 
 @app.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request, db: Session = Depends(get_db)):
     from app.db import settings_store
-    return templates.TemplateResponse(request, "settings.html", {
-        "match_auto": settings_store.get_setting(db, "match_auto"),
-        "match_conditional": settings_store.get_setting(db, "match_conditional"),
-        "match_review": settings_store.get_setting(db, "match_review"),
-        "preferred_format": settings_store.get_setting(db, "preferred_format"),
-        "source_slskd_enabled": settings_store.source_enabled(db, "slskd"),
-        "source_musicdl_enabled": settings_store.source_enabled(db, "musicdl"),
-        "music_dir": settings.music_dir,
-        "replaygain_target": settings.replaygain_target_lufs,
-        "removed_policy": settings.removed_track_policy,
-        "tz": settings.tz,
-    })
+
+    return templates.TemplateResponse(
+        request,
+        "settings.html",
+        {
+            "match_auto": settings_store.get_setting(db, "match_auto"),
+            "match_conditional": settings_store.get_setting(db, "match_conditional"),
+            "match_review": settings_store.get_setting(db, "match_review"),
+            "preferred_format": settings_store.get_setting(db, "preferred_format"),
+            "source_slskd_enabled": settings_store.source_enabled(db, "slskd"),
+            "source_musicdl_enabled": settings_store.source_enabled(db, "musicdl"),
+            "music_dir": settings.music_dir,
+            "replaygain_target": settings.replaygain_target_lufs,
+            "removed_policy": settings.removed_track_policy,
+            "tz": settings.tz,
+        },
+    )
 
 
 @app.get("/playlists/{playlist_id}", response_class=HTMLResponse)
-def playlist_detail(playlist_id: int, request: Request, q: str = "", page: int = 1,
-                    db: Session = Depends(get_db)):
+def playlist_detail(
+    playlist_id: int,
+    request: Request,
+    q: str = "",
+    page: int = 1,
+    db: Session = Depends(get_db),
+):
     from fastapi import HTTPException
-    from sqlalchemy import func
     from sqlalchemy.orm import joinedload
     from app.db.models import PlaylistTrack
+
     q = q.strip()
     p = db.get(Playlist, playlist_id)
     if not p:
         raise HTTPException(status_code=404, detail="Not found")
     page_size = 100
     page = max(1, page)
-    tracks_query = select(PlaylistTrack).where(
-        PlaylistTrack.playlist_id == playlist_id)
+    tracks_query = select(PlaylistTrack).where(PlaylistTrack.playlist_id == playlist_id)
     if q:
         tracks_query = tracks_query.where(PlaylistTrack.source_title.ilike(f"%{q}%"))
     total_tracks = db.execute(
-        select(func.count()).select_from(tracks_query.subquery())).scalar_one()
+        select(func.count()).select_from(tracks_query.subquery())
+    ).scalar_one()
     page_count = max(1, (total_tracks + page_size - 1) // page_size)
     page = min(page, page_count)
-    memberships = db.execute(
-        tracks_query.options(joinedload(PlaylistTrack.track))
-        .order_by(PlaylistTrack.position)
-        .offset((page - 1) * page_size).limit(page_size)).scalars().all()
+    memberships = (
+        db.execute(
+            tracks_query.options(joinedload(PlaylistTrack.track))
+            .order_by(PlaylistTrack.position)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        .scalars()
+        .all()
+    )
     import os
     from app.sync.m3u import m3u_path
     from app.sync.library import playlist_usage, human_size
     from app.db.settings_store import source_enabled
+
     plist_dir = settings.playlist_dir or os.path.join(settings.music_dir, "_Playlists")
     m3u = m3u_path(plist_dir, p)
     size_bytes, size_files = playlist_usage(db, playlist_id)
-    return templates.TemplateResponse(request, "playlist_detail.html",
-                                        {"playlist": p, "memberships": memberships,
-                                         "search_query": q, "page": page,
-                                         "page_count": page_count,
-                                         "total_tracks": total_tracks,
-                                         "m3u_path": str(m3u) if m3u.exists() else None,
-                                        "total_size": human_size(size_bytes),
-                                        "total_files": size_files,
-                                        "source_slskd_enabled": source_enabled(db, "slskd"),
-                                        "source_musicdl_enabled": source_enabled(db, "musicdl")})
+    return templates.TemplateResponse(
+        request,
+        "playlist_detail.html",
+        {
+            "playlist": p,
+            "memberships": memberships,
+            "search_query": q,
+            "page": page,
+            "page_count": page_count,
+            "total_tracks": total_tracks,
+            "m3u_path": str(m3u) if m3u.exists() else None,
+            "total_size": human_size(size_bytes),
+            "total_files": size_files,
+            "source_slskd_enabled": source_enabled(db, "slskd"),
+            "source_musicdl_enabled": source_enabled(db, "musicdl"),
+        },
+    )
 
 
 @app.get("/review", response_class=HTMLResponse)
 def review_page(request: Request, db: Session = Depends(get_db)):
-    tracks = db.execute(select(Track).where(Track.status.in_(
-        ["needs_review", "failed", "skipped"])).limit(200)).scalars().all()
+    tracks = (
+        db.execute(
+            select(Track)
+            .where(Track.status.in_(["needs_review", "failed", "skipped"]))
+            .limit(200)
+        )
+        .scalars()
+        .all()
+    )
     return templates.TemplateResponse(request, "review.html", {"tracks": tracks})
 
 
 @app.get("/review/{track_id}", response_class=HTMLResponse)
-def review_detail(track_id: int, request: Request, db: Session = Depends(get_db),
-                 shown: int = 10):
+def review_detail(
+    track_id: int, request: Request, db: Session = Depends(get_db), shown: int = 10
+):
     from fastapi import HTTPException
     from sqlalchemy import desc
     from app.db.models import DownloadCandidate
     from app.matching.scoring import classify_score
+
     t = db.get(Track, track_id)
     if not t:
         raise HTTPException(status_code=404, detail="Not found")
-    rows = db.execute(select(DownloadCandidate).where(
-        DownloadCandidate.track_id == track_id).order_by(
-        desc(DownloadCandidate.score))).scalars().all()
+    rows = (
+        db.execute(
+            select(DownloadCandidate)
+            .where(DownloadCandidate.track_id == track_id)
+            .order_by(desc(DownloadCandidate.score))
+        )
+        .scalars()
+        .all()
+    )
     from app.db.settings_store import get_thresholds, source_enabled
+
     auto, conditional, review = get_thresholds(db)
-    cands = [{"id": c.id, "title": c.title, "artist": c.artist,
-              "quality": c.quality, "score": c.score,
-              "verdict": classify_score(c.score or 0, auto, conditional, review),
-              "rejected": bool(c.rejected_reason), "source": c.source_url}
-             for c in rows]
+    cands = [
+        {
+            "id": c.id,
+            "provider": c.provider,
+            "title": c.title,
+            "artist": c.artist,
+            "quality": c.quality,
+            "score": c.score,
+            "verdict": classify_score(c.score or 0, auto, conditional, review),
+            "rejected": bool(c.rejected_reason),
+            "source": c.source_url,
+        }
+        for c in rows
+    ]
     # review page shows usable candidates in pages of 10 + all rejected
     # (so undo stays possible); ?shown=N pages through the usable ones
     shown = max(10, min(shown, 500))
@@ -211,7 +291,9 @@ def review_detail(track_id: int, request: Request, db: Session = Depends(get_db)
     shown_list = alive + [c for c in cands if c["rejected"]]
     total = len(cands)
     if t.status == "failed":
-        reason = "Last download attempt failed. Check candidates and retry, or search again."
+        reason = (
+            "Last download attempt failed. Check candidates and retry, or search again."
+        )
     elif t.status == "skipped":
         reason = "Skipped by you — sync ignores this track until unskipped."
     elif not cands:
@@ -222,13 +304,22 @@ def review_detail(track_id: int, request: Request, db: Session = Depends(get_db)
             reason = "All candidates were rejected. Unreject one or search again."
         else:
             b = remaining[0]
-            reason = (f"Best usable match scores {b['score']:.1f} ({b['verdict']}) — "
-                      f"below the auto-download line. Pick one manually or reject and re-search.")
-    return templates.TemplateResponse(request, "review_detail.html",
-                                       {"track": t, "candidates": shown_list,
-                                        "reason": reason,
-                                        "shown_usable": len(alive),
-                                        "total_usable": len(usable),
-                                        "total_candidates": total,
-                                        "source_slskd_enabled": source_enabled(db, "slskd"),
-                                        "source_musicdl_enabled": source_enabled(db, "musicdl")})
+            reason = (
+                f"Best usable match scores {b['score']:.1f} ({b['verdict']}) — "
+                "below the auto-download line. Pick one manually or reject and "
+                "re-search."
+            )
+    return templates.TemplateResponse(
+        request,
+        "review_detail.html",
+        {
+            "track": t,
+            "candidates": shown_list,
+            "reason": reason,
+            "shown_usable": len(alive),
+            "total_usable": len(usable),
+            "total_candidates": total,
+            "source_slskd_enabled": source_enabled(db, "slskd"),
+            "source_musicdl_enabled": source_enabled(db, "musicdl"),
+        },
+    )

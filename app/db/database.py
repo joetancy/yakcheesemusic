@@ -22,6 +22,8 @@ if settings.database_url.startswith("sqlite"):
         cur.execute("PRAGMA journal_mode=WAL")
         cur.execute("PRAGMA busy_timeout=30000")
         cur.close()
+
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 Base = declarative_base()
@@ -53,7 +55,12 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     # lightweight forward migration for dev DBs created before a column existed
     from sqlalchemy import text
+
     with engine.begin() as conn:
-        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(download_candidates)"))]
+        cols = [
+            r[1] for r in conn.execute(text("PRAGMA table_info(download_candidates)"))
+        ]
         if "size" not in cols:
-            conn.execute(text("ALTER TABLE download_candidates ADD COLUMN size INTEGER"))
+            conn.execute(
+                text("ALTER TABLE download_candidates ADD COLUMN size INTEGER")
+            )

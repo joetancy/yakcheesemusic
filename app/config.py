@@ -16,7 +16,9 @@ class Settings(BaseSettings):
     default_sync_schedule: str = "daily_0330"
     removed_track_policy: str = "keep"  # keep | archive | delete
     replaygain_target_lufs: float = -14.0
-    provider_priority: str = "qobuz,tidal,deeper,deezer,apple,migu,qq,netease,kuwo,kugou"
+    provider_priority: str = (
+        "qobuz,tidal,deeper,deezer,apple,migu,qq,netease,kuwo,kugou"
+    )
 
     # Spotify Web API (optional; without these, import falls back to the
     # embed page which returns max 100 tracks and no ISRCs)

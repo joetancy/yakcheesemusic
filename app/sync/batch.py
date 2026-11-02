@@ -5,6 +5,7 @@ unless a close rival (>=80, within 5 pts) exists; anything else -> needs_review.
 Among near-tied candidates (within 3 pts of best) the better format wins.
 Removed playlist entries are kept (policy: keep) — membership deactivated only.
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,8 +20,18 @@ log = logging.getLogger("yakcheesemusic")
 
 TODO_STATUSES = {"pending", "needs_review", "failed", "matched", "searching"}
 
-FORMAT_RANK = {"flac": 50, "alac": 40, "wav": 45, "wv": 45, "ape": 45,
-               "aac": 30, "m4a": 25, "mp3": 20, "ogg": 15, "opus": 15}
+FORMAT_RANK = {
+    "flac": 50,
+    "alac": 40,
+    "wav": 45,
+    "wv": 45,
+    "ape": 45,
+    "aac": 30,
+    "m4a": 25,
+    "mp3": 20,
+    "ogg": 15,
+    "opus": 15,
+}
 
 
 def quality_rank(fmt: str | None) -> int:
@@ -35,8 +46,12 @@ def pick_best(ranked: list[dict]) -> dict:
     return max(contenders, key=lambda c: (quality_rank(c.get("format")), c["score"]))
 
 
-def decide(ranked: list[dict], auto: float = 90.0,
-           conditional: float = 80.0, review: float = 65.0) -> tuple[str, dict | None]:
+def decide(
+    ranked: list[dict],
+    auto: float = 90.0,
+    conditional: float = 80.0,
+    review: float = 65.0,
+) -> tuple[str, dict | None]:
     """Return ("download", candidate) or ("review", None). Rejected are out."""
     pool = [c for c in ranked if not c.get("rejected")]
     if not pool:
@@ -47,8 +62,11 @@ def decide(ranked: list[dict], auto: float = 90.0,
     if best["verdict"] == "auto_if_no_competition":
         ordered = sorted(pool, key=lambda c: c["score"], reverse=True)
         runner = ordered[1] if len(ordered) > 1 else None
-        if runner and runner["score"] >= conditional and \
-                best["score"] - runner["score"] < 5:
+        if (
+            runner
+            and runner["score"] >= conditional
+            and best["score"] - runner["score"] < 5
+        ):
             return "review", None
         return "download", pick_best(ranked)
     return "review", None
@@ -67,7 +85,11 @@ def search_one(session_factory, track_id: int) -> tuple[str, int, list[int]]:
     from app.db.models import DownloadCandidate, Track
     from app.db.settings_store import get_thresholds, source_enabled
     from app.sync.search import rejected_keys
-    from app.sync.search import search_candidates, search_musicdl_candidates, save_candidates
+    from app.sync.search import (
+        search_candidates,
+        search_musicdl_candidates,
+        save_candidates,
+    )
 
     db = session_factory()
     try:
@@ -78,8 +100,11 @@ def search_one(session_factory, track_id: int) -> tuple[str, int, list[int]]:
         db.commit()
         try:
             auto, conditional, review = get_thresholds(db)
-            ranked = (search_candidates(t, auto, conditional, review)
-                      if source_enabled(db, "slskd") else [])
+            ranked = (
+                search_candidates(t, auto, conditional, review)
+                if source_enabled(db, "slskd")
+                else []
+            )
         except Exception as e:
             log.warning("track=%s action=search status=error error=%s", track_id, e)
             ranked = []
@@ -94,7 +119,9 @@ def search_one(session_factory, track_id: int) -> tuple[str, int, list[int]]:
                     for c in ranked:
                         c["rejected"] = c["provider_track_id"] in rej
             except Exception as e:
-                log.warning("track=%s action=musicdl-search status=error error=%s", track_id, e)
+                log.warning(
+                    "track=%s action=musicdl-search status=error error=%s", track_id, e
+                )
         if not ranked:
             t.status = "needs_review"
             db.commit()
@@ -105,18 +132,24 @@ def search_one(session_factory, track_id: int) -> tuple[str, int, list[int]]:
             t.status = "needs_review"
             db.commit()
             return "review", track_id, []
-        rows = db.execute(
-            select(DownloadCandidate).where(DownloadCandidate.track_id == t.id)
-            .order_by(DownloadCandidate.score.desc())).scalars().all()
+        rows = (
+            db.execute(
+                select(DownloadCandidate)
+                .where(DownloadCandidate.track_id == t.id)
+                .order_by(DownloadCandidate.score.desc())
+            )
+            .scalars()
+            .all()
+        )
         id_by_key = {c.provider_track_id: c.id for c in rows}
         pick_key = pick["provider_track_id"]
         if pick_key not in id_by_key:
             t.status = "needs_review"
             db.commit()
             return "review", track_id, []
-        ordered = [id_by_key[pick_key]] + \
-                  [c.id for c in rows
-                   if c.id != id_by_key[pick_key] and not c.rejected_reason][:7]
+        ordered = [id_by_key[pick_key]] + [
+            c.id for c in rows if c.id != id_by_key[pick_key] and not c.rejected_reason
+        ][:7]
         t.status = "downloading"
         t.download_provider = pick["provider"]
         db.commit()
@@ -147,30 +180,47 @@ def run_playlist_sync(session_factory, playlist_id: int, job_id: int) -> None:
         job.tracks_removed = summary["removed"]
         db.commit()
 
-        members = db.execute(
-            select(PlaylistTrack).where(
-                PlaylistTrack.playlist_id == playlist_id,
-                PlaylistTrack.active.is_(True))
-            .order_by(PlaylistTrack.position)).scalars().all()
-        todo = [m.track_id for m in members
-                if m.track_id and db.get(Track, m.track_id).status not in
-                ("downloading", "completed", "processing", "skipped")]
+        members = (
+            db.execute(
+                select(PlaylistTrack)
+                .where(
+                    PlaylistTrack.playlist_id == playlist_id,
+                    PlaylistTrack.active.is_(True),
+                )
+                .order_by(PlaylistTrack.position)
+            )
+            .scalars()
+            .all()
+        )
+        todo = [
+            m.track_id
+            for m in members
+            if m.track_id
+            and db.get(Track, m.track_id).status
+            not in ("downloading", "completed", "processing", "skipped")
+        ]
         db.close()
 
         to_download: list[tuple[int, list[int]]] = []
-        with ThreadPoolExecutor(max_workers=s.sync_search_workers,
-                                thread_name_prefix="search") as ex:
+        with ThreadPoolExecutor(
+            max_workers=s.sync_search_workers, thread_name_prefix="search"
+        ) as ex:
             futs = {ex.submit(search_one, session_factory, tid): tid for tid in todo}
             for f in as_completed(futs):
                 outcome, tid, ordered = f.result()
-                log.info("job=%s track=%s action=search status=%s", job_id, tid, outcome)
+                log.info(
+                    "job=%s track=%s action=search status=%s", job_id, tid, outcome
+                )
                 if outcome == "download":
                     to_download.append((tid, ordered))
 
-        with ThreadPoolExecutor(max_workers=s.sync_download_workers,
-                                thread_name_prefix="dl") as ex:
-            futs = {ex.submit(download_track_worker, tid, ordered): tid
-                    for tid, ordered in to_download}
+        with ThreadPoolExecutor(
+            max_workers=s.sync_download_workers, thread_name_prefix="dl"
+        ) as ex:
+            futs = {
+                ex.submit(download_track_worker, tid, ordered): tid
+                for tid, ordered in to_download
+            }
             for f in as_completed(futs):
                 tid = futs[f]
                 d = session_factory()
@@ -179,11 +229,17 @@ def run_playlist_sync(session_factory, playlist_id: int, job_id: int) -> None:
                     j = d.get(SyncJob, job_id)
                     if t and t.status == "completed":
                         j.tracks_downloaded += 1
-                        log.info("job=%s track=%s action=download status=success path=%s",
-                                 job_id, tid, t.local_path)
+                        log.info(
+                            "job=%s track=%s action=download status=success path=%s",
+                            job_id,
+                            tid,
+                            t.local_path,
+                        )
                     else:
                         j.tracks_failed += 1
-                        log.info("job=%s track=%s action=download status=failed", job_id, tid)
+                        log.info(
+                            "job=%s track=%s action=download status=failed", job_id, tid
+                        )
                     d.commit()
                 finally:
                     d.close()
@@ -195,7 +251,10 @@ def run_playlist_sync(session_factory, playlist_id: int, job_id: int) -> None:
             playlist.last_sync_at = _now()
             try:  # Streaming sources for tracks Soulseek couldn't supply
                 from app.sync.qobuz_fallback import (
-                    run_deezer_fallback, run_qobuz_fallback)
+                    run_deezer_fallback,
+                    run_qobuz_fallback,
+                )
+
                 run_qobuz_fallback(session_factory, job_id, playlist_id)
                 run_deezer_fallback(session_factory, job_id, playlist_id)
             except Exception as e:
@@ -205,12 +264,17 @@ def run_playlist_sync(session_factory, playlist_id: int, job_id: int) -> None:
             db.commit()
             try:  # refresh the player-facing .m3u (best effort)
                 from app.sync.m3u import generate_m3u
+
                 plist_dir = s.playlist_dir or os.path.join(s.music_dir, "_Playlists")
                 generate_m3u(db, playlist_id, s.music_dir, plist_dir)
             except Exception as e:
                 log.warning("job=%s m3u refresh failed: %s", job_id, e)
-            log.info("job=%s action=sync status=success downloaded=%s failed=%s",
-                     job_id, job.tracks_downloaded, job.tracks_failed)
+            log.info(
+                "job=%s action=sync status=success downloaded=%s failed=%s",
+                job_id,
+                job.tracks_downloaded,
+                job.tracks_failed,
+            )
         finally:
             db.close()
     except Exception:

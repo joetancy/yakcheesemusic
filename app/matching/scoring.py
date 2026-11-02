@@ -1,4 +1,5 @@
-"""Match scoring (Phase 4). Weights: title 35 / artist 30 / album 15 / duration 15 / ISRC 5."""
+"""Match scoring weights: title 35 / artist 30 / album 15 / duration 15 / ISRC 5."""
+
 from __future__ import annotations
 
 import difflib
@@ -41,14 +42,17 @@ def score_candidate(
     d = duration_score(source.get("duration_ms"), candidate.get("duration_ms"))
     s_isrc, c_isrc = (source.get("isrc") or ""), (candidate.get("isrc") or "")
     isrc = 1.0 if (s_isrc and c_isrc and s_isrc.upper() == c_isrc.upper()) else 0.0
-    score = 100 * (t * TITLE_W + a * ARTIST_W + al * ALBUM_W + d * DURATION_W + isrc * ISRC_W)
+    score = 100 * (
+        t * TITLE_W + a * ARTIST_W + al * ALBUM_W + d * DURATION_W + isrc * ISRC_W
+    )
     if s_isrc and c_isrc and s_isrc.upper() == c_isrc.upper():
         score = min(100.0, score + 10.0)  # exact ISRC bonus
     return max(0.0, min(100.0, score - variant_penalty))
 
 
-def classify_score(score: float, auto: float = 90.0, conditional: float = 80.0,
-                   review: float = 65.0) -> str:
+def classify_score(
+    score: float, auto: float = 90.0, conditional: float = 80.0, review: float = 65.0
+) -> str:
     if score >= auto:
         return "auto"
     if score >= conditional:

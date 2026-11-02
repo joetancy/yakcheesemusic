@@ -5,6 +5,7 @@ page's own live `fetchPlaylist` pathfinder request (operation hash, headers,
 anonymous bearer token — all harvested fresh, nothing hardcoded), then replay
 it with paginated offsets over plain HTTPS. Falls back to embed on any error.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,8 +18,7 @@ import httpx
 from app.providers.base import PlaylistProvider, ProviderPlaylist, ProviderTrack
 
 log = logging.getLogger("yakcheesemusic")
-_UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-       "Chrome/120 Safari/537.36")
+_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
 _PATHFINDER = "https://api-partner.spotify.com/pathfinder/v2/query"
 
 
@@ -36,13 +36,15 @@ def _harvest(url: str, playlist_id: str, timeout_s: int = 90) -> dict:
     language = locale.split("-", 1)[0]
     accept_language = f"{locale},{language};q=0.9,en;q=0.8"
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True,
-                                     args=["--no-sandbox", f"--lang={locale}"])
+        browser = pw.chromium.launch(
+            headless=True, args=["--no-sandbox", f"--lang={locale}"]
+        )
         try:
             context = browser.new_context(
                 user_agent=_UA,
                 locale=locale,
-                extra_http_headers={"Accept-Language": accept_language})
+                extra_http_headers={"Accept-Language": accept_language},
+            )
             page = context.new_page()
 
             def on_request(req) -> None:
@@ -59,23 +61,35 @@ def _harvest(url: str, playlist_id: str, timeout_s: int = 90) -> dict:
                 except Exception:
                     return
                 if data.get("operationName") == "fetchPlaylist" and "offset" in (
-                        data.get("variables") or {}):
-                    found.update({
-                        "headers": {k: v for k, v in req.headers.items()
-                                    if k.lower() in ("authorization", "client-token",
-                                                     "spotify-app-version",
-                                                     "accept-language")},
-                        "operationName": data["operationName"],
-                        "variables": data["variables"],
-                        "extensions": data["extensions"],
-                    })
+                    data.get("variables") or {}
+                ):
+                    found.update(
+                        {
+                            "headers": {
+                                k: v
+                                for k, v in req.headers.items()
+                                if k.lower()
+                                in (
+                                    "authorization",
+                                    "client-token",
+                                    "spotify-app-version",
+                                    "accept-language",
+                                )
+                            },
+                            "operationName": data["operationName"],
+                            "variables": data["variables"],
+                            "extensions": data["extensions"],
+                        }
+                    )
 
             page.on("request", on_request)
             page.goto(url, wait_until="domcontentloaded", timeout=60000)
             deadline = time.time() + timeout_s
             while not found and time.time() < deadline:
                 try:
-                    page.wait_for_selector('[data-testid="tracklist-row"]', timeout=5000)
+                    page.wait_for_selector(
+                        '[data-testid="tracklist-row"]', timeout=5000
+                    )
                     page.wait_for_timeout(2000)
                 except Exception:
                     pass
@@ -93,7 +107,8 @@ def _parse_item(item: dict, position: int) -> ProviderTrack | None:
     uri = data.get("uri", "")
     artists = ", ".join(
         (a.get("profile") or {}).get("name", "")
-        for a in ((data.get("artists") or {}).get("items") or []))
+        for a in ((data.get("artists") or {}).get("items") or [])
+    )
     album = (data.get("albumOfTrack") or {}).get("name", "")
     duration = (data.get("trackDuration") or {}).get("totalMilliseconds")
     date = ((data.get("albumOfTrack") or {}).get("date") or {}).get("isoString", "")
@@ -114,7 +129,9 @@ def _parse_item(item: dict, position: int) -> ProviderTrack | None:
 def _page(session: httpx.Client, headers: dict, payload: dict) -> dict:
     r = session.post(_PATHFINDER, json=payload, headers=headers, timeout=30)
     if r.status_code in (401, 403):
-        raise RuntimeError(f"pathfinder rejected harvested credentials: {r.status_code}")
+        raise RuntimeError(
+            f"pathfinder rejected harvested credentials: {r.status_code}"
+        )
     r.raise_for_status()
     return r.json()
 
@@ -123,16 +140,20 @@ def fetch_full_playlist(url: str, playlist_id: str) -> ProviderPlaylist:
     # Keep the submitted URL intact. Query parameters such as locale=zh-CN
     # influence Spotify's localized metadata response.
     harvested = _harvest(url, playlist_id)
-    headers = {"authorization": harvested["headers"]["authorization"],
-               "client-token": harvested["headers"]["client-token"],
-               "spotify-app-version": harvested["headers"].get("spotify-app-version", ""),
-               "Accept-Language": harvested["headers"].get(
-                   "accept-language", f"{_browser_locale(url)},"
-                   f"{_browser_locale(url).split('-', 1)[0]};q=0.9,en;q=0.8"),
-               "content-type": "application/json",
-               "User-Agent": _UA,
-               "Origin": "https://open.spotify.com",
-               "Referer": "https://open.spotify.com/"}
+    headers = {
+        "authorization": harvested["headers"]["authorization"],
+        "client-token": harvested["headers"]["client-token"],
+        "spotify-app-version": harvested["headers"].get("spotify-app-version", ""),
+        "Accept-Language": harvested["headers"].get(
+            "accept-language",
+            f"{_browser_locale(url)},"
+            f"{_browser_locale(url).split('-', 1)[0]};q=0.9,en;q=0.8",
+        ),
+        "content-type": "application/json",
+        "User-Agent": _UA,
+        "Origin": "https://open.spotify.com",
+        "Referer": "https://open.spotify.com/",
+    }
     base_vars = dict(harvested["variables"])
     limit = int(base_vars.get("limit") or 25)
     tracks: list[ProviderTrack] = []
@@ -143,10 +164,15 @@ def fetch_full_playlist(url: str, playlist_id: str) -> ProviderPlaylist:
         while True:
             variables = dict(base_vars)
             variables["offset"] = offset
-            data = _page(session, headers, {
-                "operationName": harvested["operationName"],
-                "variables": variables,
-                "extensions": harvested["extensions"]})
+            data = _page(
+                session,
+                headers,
+                {
+                    "operationName": harvested["operationName"],
+                    "variables": variables,
+                    "extensions": harvested["extensions"],
+                },
+            )
             pl = (data.get("data") or {}).get("playlistV2") or {}
             name = pl.get("name", name)
             content = pl.get("content") or {}
@@ -164,22 +190,30 @@ def fetch_full_playlist(url: str, playlist_id: str) -> ProviderPlaylist:
                 break
             if len(items) < limit:
                 break
-    return ProviderPlaylist(provider="spotify", provider_playlist_id=playlist_id,
-                            name=name, url=url,
-                            track_count=total if total is not None else len(tracks),
-                            tracks=tracks, complete=True)
+    return ProviderPlaylist(
+        provider="spotify",
+        provider_playlist_id=playlist_id,
+        name=name,
+        url=url,
+        track_count=total if total is not None else len(tracks),
+        tracks=tracks,
+        complete=True,
+    )
 
 
 class SpotifyWebProvider(PlaylistProvider):
     """No-key full reads via the public web page. Last resort before embed."""
+
     provider_name = "spotify"
 
     def validate_url(self, url: str) -> bool:
         from app.providers.spotify import extract_playlist_id
+
         return extract_playlist_id(url) is not None
 
     def get_playlist(self, url: str) -> ProviderPlaylist:
         from app.providers.spotify import extract_playlist_id
+
         pid = extract_playlist_id(url)
         if not pid:
             raise ValueError(f"Not a Spotify playlist URL: {url}")

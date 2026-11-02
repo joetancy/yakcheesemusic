@@ -3,6 +3,7 @@
 Flow: start search -> poll until complete/timeout -> collect audio files ->
 caller scores them -> enqueue download -> poll transfer -> locate file.
 """
+
 from __future__ import annotations
 
 import time
@@ -17,7 +18,18 @@ import logging
 
 log = logging.getLogger("yakcheesemusic")
 
-AUDIO_EXTS = {".flac", ".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".wv", ".ape", ".alac"}
+AUDIO_EXTS = {
+    ".flac",
+    ".mp3",
+    ".m4a",
+    ".aac",
+    ".ogg",
+    ".opus",
+    ".wav",
+    ".wv",
+    ".ape",
+    ".alac",
+}
 
 
 def _ext_of(filename: str) -> str:
@@ -46,6 +58,7 @@ def describe_quality(f: dict) -> tuple[str | None, str | None]:
 def parse_filename(filename: str) -> tuple[str, str]:
     """Best-effort (artist, title) from a Soulseek remote path."""
     import re
+
     base = (filename or "").replace("\\", "/").split("/")[-1]
     base = base[: base.rfind(".")] if "." in base else base
     base = re.sub(r"^\d+[\s.\-_]+", "", base).strip()
@@ -64,9 +77,12 @@ def file_to_result(username: str, f: dict) -> SearchResult | None:
     return SearchResult(
         provider="soulseek",
         provider_track_id=f"{username}/{f.get('filename')}",
-        title=title or "Unknown Title", artist=artist, album="",
+        title=title or "Unknown Title",
+        artist=artist,
+        album="",
         duration_ms=int(f.get("length", 0) * 1000) if f.get("length") else None,
-        quality=quality, format=fmt,
+        quality=quality,
+        format=fmt,
         source_url=f"soulseek://{username}/{f.get('filename')}",
         size=size or None,
     )
@@ -75,8 +91,12 @@ def file_to_result(username: str, f: dict) -> SearchResult | None:
 class SlskdDownloader(DownloaderBase):
     name = "soulseek"
 
-    def __init__(self, url: str | None = None, api_key: str | None = None,
-                 search_timeout_s: int | None = None):
+    def __init__(
+        self,
+        url: str | None = None,
+        api_key: str | None = None,
+        search_timeout_s: int | None = None,
+    ):
         s = get_settings()
         self.base = (url or s.slskd_url).rstrip("/")
         self.key = api_key if api_key is not None else s.slskd_api_key
@@ -87,7 +107,9 @@ class SlskdDownloader(DownloaderBase):
     def _headers(self) -> dict:
         return {"X-API-Key": self.key}
 
-    def _call(self, client: httpx.Client, method: str, url: str, **kw) -> httpx.Response:
+    def _call(
+        self, client: httpx.Client, method: str, url: str, **kw
+    ) -> httpx.Response:
         """Single retry layer: ride out 429/5xx with backoff (honors Retry-After)."""
         delay = 2.0
         last = None
@@ -111,13 +133,17 @@ class SlskdDownloader(DownloaderBase):
             raise RuntimeError("slskd rejected API key (401/403)")
         r.raise_for_status()
 
-    def search(self, title: str, artist: str, album: str = "",
-               query: str | None = None) -> list[SearchResult]:
+    def search(
+        self, title: str, artist: str, album: str = "", query: str | None = None
+    ) -> list[SearchResult]:
         if query and query.strip():
             queries = [query.strip()]
         else:
-            queries = [f"{artist} {title}".strip(), (title or "").strip(),
-                       (artist or "").strip()]
+            queries = [
+                f"{artist} {title}".strip(),
+                (title or "").strip(),
+                (artist or "").strip(),
+            ]
             queries = [q for q in dict.fromkeys(queries) if q]
         if not queries:
             return []
@@ -128,10 +154,12 @@ class SlskdDownloader(DownloaderBase):
                     return out
             return []
 
-    def _run_query(self, c: httpx.Client, query: str, title: str,
-                   artist: str, album: str) -> list[SearchResult]:
-        r = self._call(c, "post", f"{self.base}/api/v0/searches",
-                       json={"searchText": query})
+    def _run_query(
+        self, c: httpx.Client, query: str, title: str, artist: str, album: str
+    ) -> list[SearchResult]:
+        r = self._call(
+            c, "post", f"{self.base}/api/v0/searches", json={"searchText": query}
+        )
         self._check(r)
         sid = r.json().get("id")
         if not sid:
@@ -159,13 +187,17 @@ class SlskdDownloader(DownloaderBase):
     def download(self, result: SearchResult, dest_dir: str) -> str:
         """Enqueue in slskd and block until the file completes. Returns final path."""
         from app.config import get_settings as _gs
+
         timeout_s = _gs().slskd_download_timeout_s
         username, _, filename = result.provider_track_id.partition("/")
         size = result.size
         with httpx.Client(timeout=30) as c:
-            r = self._call(c, "post",
-                           f"{self.base}/api/v0/transfers/downloads/{quote(username, safe='')}",
-                           json=[{"filename": filename, "size": size}])
+            r = self._call(
+                c,
+                "post",
+                f"{self.base}/api/v0/transfers/downloads/{quote(username, safe='')}",
+                json=[{"filename": filename, "size": size}],
+            )
             if r.status_code == 400:
                 raise RuntimeError(f"slskd rejected download: {r.text[:200]}")
             self._check(r)
@@ -178,9 +210,12 @@ class SlskdDownloader(DownloaderBase):
                 state = (found or {}).get("state", "").lower()
                 if found and ("completed" in state or "succeeded" in state):
                     return self._locate(base_name, dest_dir)
-                if found and any(s in state for s in
-                                 ("errored", "cancelled", "failed", "rejected")):
-                    raise RuntimeError(f"soulseek transfer {found.get('state')}: {base_name}")
+                if found and any(
+                    s in state for s in ("errored", "cancelled", "failed", "rejected")
+                ):
+                    raise RuntimeError(
+                        f"soulseek transfer {found.get('state')}: {base_name}"
+                    )
                 time.sleep(5)
             raise TimeoutError(f"soulseek download timed out: {base_name}")
 
@@ -192,8 +227,11 @@ class SlskdDownloader(DownloaderBase):
             node = stack.pop()
             if isinstance(node, dict):
                 fn = node.get("filename", "")
-                if fn and fn.replace("\\", "/").split("/")[-1].lower() == base_name \
-                        and "state" in node:
+                if (
+                    fn
+                    and fn.replace("\\", "/").split("/")[-1].lower() == base_name
+                    and "state" in node
+                ):
                     return node
                 stack.extend(node.values())
             elif isinstance(node, list):
@@ -203,8 +241,11 @@ class SlskdDownloader(DownloaderBase):
     @staticmethod
     def _locate(base_name: str, downloads_dir: str) -> str:
         import os
+
         for root, _, files in os.walk(downloads_dir):
             for fn in files:
                 if fn.lower() == base_name:
                     return os.path.join(root, fn)
-        raise FileNotFoundError(f"completed download not found under {downloads_dir}: {base_name}")
+        raise FileNotFoundError(
+            f"completed download not found under {downloads_dir}: {base_name}"
+        )

@@ -21,28 +21,36 @@ def test_build_command():
 def test_convert_roundtrip(tmp_path):
     import wave
     from app.audio.convert import convert_to_mp3
+
     src = str(tmp_path / "t.flac")
     # real minimal flac via ffmpeg (available in test image)
     import subprocess
+
     w = str(tmp_path / "s.wav")
     with wave.open(w, "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
         wf.setframerate(8000)
         wf.writeframes(b"\x00\x00" * 8000)
-    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-                    "-i", w, src], check=True, timeout=60)
+    subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", w, src],
+        check=True,
+        timeout=60,
+    )
     out = convert_to_mp3(src)
     assert out.endswith(".mp3")
     import os
+
     assert os.path.exists(out) and not os.path.exists(src)
     from mutagen import File as MFile
+
     audio = MFile(out)
     assert audio.info.length > 0
 
 
 def test_convert_failure_keeps_source(tmp_path):
     from app.audio.convert import convert_to_mp3
+
     src = str(tmp_path / "bad.flac")
     open(src, "w").write("not audio")
     try:
@@ -51,6 +59,7 @@ def test_convert_failure_keeps_source(tmp_path):
     except RuntimeError:
         pass
     import os
+
     assert os.path.exists(src)  # source untouched on failure
 
 

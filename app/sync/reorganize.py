@@ -1,4 +1,5 @@
 """Move completed tracks to their resolved Artist/Album location."""
+
 from __future__ import annotations
 
 import logging
@@ -11,20 +12,31 @@ from app.config import get_settings
 from app.db.models import Track
 from app.metadata.resolve import resolve_metadata
 from app.metadata.tags import read_tags
-from app.sync.library import library_path, place_file, sanitize
+from app.sync.library import library_path, place_file
 
 log = logging.getLogger("yakcheesemusic")
 
 
 def resolved_location(track: Track, music_dir: str) -> Path:
     meta = resolve_metadata(
-        {"title": track.title, "artist": track.artist, "album": track.album,
-         "year": track.year, "track_number": track.track_number},
+        {
+            "title": track.title,
+            "artist": track.artist,
+            "album": track.album,
+            "year": track.year,
+            "track_number": track.track_number,
+        },
         read_tags(track.local_path) if track.local_path else {},
-        track.download_source_url or "")
-    return library_path(music_dir, meta["artist"], meta["album"], meta["title"],
-                        Path(track.local_path).suffix if track.local_path else ".mp3",
-                        meta["track_number"]), meta
+        track.download_source_url or "",
+    )
+    return library_path(
+        music_dir,
+        meta["artist"],
+        meta["album"],
+        meta["title"],
+        Path(track.local_path).suffix if track.local_path else ".mp3",
+        meta["track_number"],
+    ), meta
 
 
 def reorganize_track(db: Session, track_id: int) -> dict:
@@ -41,6 +53,7 @@ def reorganize_track(db: Session, track_id: int) -> dict:
     final = place_file(Path(t.local_path), dest)
     # prune newly-emptied old dirs (reuse prune logic bound to music dir)
     from app.sync.prune import prune_empty_parents
+
     prune_empty_parents(t.local_path, music_dir)
     t.local_path = str(final)
     if meta["album"] != "Unknown Album":
@@ -56,9 +69,16 @@ def reorganize_track(db: Session, track_id: int) -> dict:
         from app.sync.m3u import generate_m3u
         from app.db.models import PlaylistTrack
         from sqlalchemy import select
+
         plist_dir = get_settings().playlist_dir or os.path.join(music_dir, "_Playlists")
-        pids = {m.playlist_id for m in db.execute(
-            select(PlaylistTrack).where(PlaylistTrack.track_id == t.id)).scalars().all()}
+        pids = {
+            m.playlist_id
+            for m in db.execute(
+                select(PlaylistTrack).where(PlaylistTrack.track_id == t.id)
+            )
+            .scalars()
+            .all()
+        }
         for pid in pids:
             generate_m3u(db, pid, music_dir, plist_dir)
     except Exception as e:

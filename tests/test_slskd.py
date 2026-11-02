@@ -1,7 +1,11 @@
 import os
 
 from app.downloaders.slskd import (
-    _ext_of, describe_quality, file_to_result, parse_filename, AUDIO_EXTS,
+    _ext_of,
+    describe_quality,
+    file_to_result,
+    parse_filename,
+    AUDIO_EXTS,
 )
 from app.sync.library import sanitize, library_path
 
@@ -31,21 +35,29 @@ def test_file_to_result_filters_non_audio():
 
 
 def test_parse_filename():
-    assert parse_filename("02. Little Thing Called Love.flac") == ("", "Little Thing Called Love")
-    assert parse_filename("FIFTY FIFTY - Called it Love.mp3") == ("FIFTY FIFTY", "Called it Love")
+    assert parse_filename("02. Little Thing Called Love.flac") == (
+        "",
+        "Little Thing Called Love",
+    )
+    assert parse_filename("FIFTY FIFTY - Called it Love.mp3") == (
+        "FIFTY FIFTY",
+        "Called it Love",
+    )
     assert parse_filename("@@lglyw\\0\\redferne\\album\\01 - Song.flac") == ("", "Song")
 
 
 def test_file_to_result_parses_remote_metadata():
-    r = file_to_result("u", {"filename": "FIFTY FIFTY - Called it Love.flac", "size": 5})
+    r = file_to_result(
+        "u", {"filename": "FIFTY FIFTY - Called it Love.flac", "size": 5}
+    )
     assert (r.title, r.artist) == ("Called it Love", "FIFTY FIFTY")
     assert r.source_url.startswith("soulseek://")
 
 
 def test_sanitize():
-    assert sanitize('AC/DC: Live?') == 'AC_DC_ Live_'
-    assert sanitize('  spaced   out  ') == 'spaced out'
-    assert sanitize('') == 'Unknown'
+    assert sanitize("AC/DC: Live?") == "AC_DC_ Live_"
+    assert sanitize("  spaced   out  ") == "spaced out"
+    assert sanitize("") == "Unknown"
 
 
 def test_library_path(tmp_path):
@@ -57,11 +69,12 @@ def test_library_path(tmp_path):
 
 def test_human_size():
     from app.sync.library import human_size
+
     assert human_size(0) == "0 B"
     assert human_size(512) == "512 B"
     assert human_size(2048) == "2.0 KB"
     assert human_size(5 * 1024 * 1024) == "5.0 MB"
-    assert human_size(int(1.5 * 1024 ** 3)) == "1.5 GB"
+    assert human_size(int(1.5 * 1024**3)) == "1.5 GB"
 
 
 def test_playlist_usage(tmp_path):
@@ -70,6 +83,7 @@ def test_playlist_usage(tmp_path):
     from app.db.database import Base
     from app.db.models import Playlist, Track, PlaylistTrack
     from app.sync.library import playlist_usage
+
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
     db = sessionmaker(bind=engine, future=True)()
@@ -82,18 +96,31 @@ def test_playlist_usage(tmp_path):
     t2 = Track(title="B", status="pending")
     db.add_all([t1, t2])
     db.flush()
-    db.add_all([
-        PlaylistTrack(playlist_id=p.id, track_id=t1.id, provider_track_id="1",
-                      position=0, active=True),
-        PlaylistTrack(playlist_id=p.id, track_id=t2.id, provider_track_id="2",
-                      position=1, active=True),
-    ])
+    db.add_all(
+        [
+            PlaylistTrack(
+                playlist_id=p.id,
+                track_id=t1.id,
+                provider_track_id="1",
+                position=0,
+                active=True,
+            ),
+            PlaylistTrack(
+                playlist_id=p.id,
+                track_id=t2.id,
+                provider_track_id="2",
+                position=1,
+                active=True,
+            ),
+        ]
+    )
     db.commit()
     assert playlist_usage(db, p.id) == (2048, 1)
 
 
 def test_quality_label():
     from app.db.models import Track
+
     t = Track(title="x", format="flac", bit_depth=16, sample_rate=44100)
     assert t.quality_label == "FLAC 16/44.1"
     t = Track(title="x", format="mp3", bitrate=320)
@@ -107,6 +134,7 @@ def test_quality_label():
 def test_probe_mp3(tmp_path):
     import wave
     from app.audio.probe import probe_audio
+
     wf = wave.open(str(tmp_path / "t.wav"), "wb")
     wf.setnchannels(2)
     wf.setsampwidth(2)
@@ -120,6 +148,7 @@ def test_probe_mp3(tmp_path):
 
 def _valid_wav(path):
     import wave
+
     wf = wave.open(str(path), "wb")
     wf.setnchannels(2)
     wf.setsampwidth(2)
@@ -130,6 +159,7 @@ def _valid_wav(path):
 
 def test_check_playable(tmp_path):
     from app.audio.probe import check_playable
+
     assert check_playable(str(tmp_path / "nope.mp3")) == "missing file"
     empty = tmp_path / "empty.mp3"
     empty.write_bytes(b"")
@@ -139,6 +169,7 @@ def test_check_playable(tmp_path):
     assert check_playable(str(garbage)) is not None
     tagonly = tmp_path / "tags.mp3"
     from mutagen.id3 import ID3, TIT2
+
     tags = ID3()
     tags.add(TIT2(text="T"))
     tags.save(str(tagonly))
@@ -149,7 +180,6 @@ def test_check_playable(tmp_path):
 
 
 def test_run_library_rescan(tmp_path):
-    import os
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
     from app.db.database import Base
@@ -168,8 +198,14 @@ def test_run_library_rescan(tmp_path):
     db = TestingSession()
     db.add(Track(title="Bad", artist="X", status="completed", local_path=str(bad)))
     db.add(Track(title="Good", artist="Y", status="completed", local_path=str(good)))
-    db.add(Track(title="NoFile", artist="Z", status="completed",
-                 local_path=str(tmp_path / "gone.mp3")))
+    db.add(
+        Track(
+            title="NoFile",
+            artist="Z",
+            status="completed",
+            local_path=str(tmp_path / "gone.mp3"),
+        )
+    )
     job = SyncJob(playlist_id=None, status="running")
     db.add(job)
     db.commit()
@@ -226,6 +262,7 @@ def test_make_readable(tmp_path):
     import os
     import stat
     from app.sync.library import make_readable
+
     p = tmp_path / "song.mp3"
     p.write_bytes(b"x" * 1024)
     os.chmod(str(p), 0o600)
@@ -236,6 +273,7 @@ def test_make_readable(tmp_path):
 
 def test_replace_previous_file(tmp_path):
     from app.sync.library import replace_previous_file
+
     old = tmp_path / "old.mp3"
     new = tmp_path / "new.mp3"
     old.write_bytes(b"o" * 512)
@@ -244,8 +282,10 @@ def test_replace_previous_file(tmp_path):
     assert not old.exists() and new.exists()
     assert replace_previous_file(str(new), str(new), str(tmp_path)) is False
     assert replace_previous_file(None, str(new), str(tmp_path)) is False
-    assert replace_previous_file(str(tmp_path / "gone.mp3"), str(new),
-                                  str(tmp_path)) is False
+    assert (
+        replace_previous_file(str(tmp_path / "gone.mp3"), str(new), str(tmp_path))
+        is False
+    )
 
 
 def _dedup_db(files):
@@ -253,6 +293,7 @@ def _dedup_db(files):
     from sqlalchemy.orm import sessionmaker
     from app.db.database import Base
     from app.db.models import SyncJob, Track
+
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
     TestingSession = sessionmaker(bind=engine, future=True)
@@ -272,8 +313,10 @@ def test_run_library_dedup(tmp_path, monkeypatch):
     import app.config
     from app.db.models import SyncJob
     from app.sync.library import run_library_dedup
-    monkeypatch.setattr(app.config, "get_settings",
-                        lambda: SimpleNamespace(music_dir=str(tmp_path)))
+
+    monkeypatch.setattr(
+        app.config, "get_settings", lambda: SimpleNamespace(music_dir=str(tmp_path))
+    )
 
     keep = tmp_path / "keep.mp3"
     keep.write_bytes(os.urandom(2048))
@@ -284,8 +327,9 @@ def test_run_library_dedup(tmp_path, monkeypatch):
     dup_a.write_bytes(b"D" * 2048)
     dup_b.write_bytes(b"D" * 2048)
 
-    TestingSession, jid = _dedup_db([
-        ("Keep", str(keep)), ("DupA", str(dup_a)), ("DupB", str(dup_b))])
+    TestingSession, jid = _dedup_db(
+        [("Keep", str(keep)), ("DupA", str(dup_a)), ("DupB", str(dup_b))]
+    )
 
     run_library_dedup(TestingSession, jid, remove=True)
 
@@ -303,8 +347,10 @@ def test_run_library_dedup_dry_run(tmp_path, monkeypatch):
     import app.config
     from app.db.models import SyncJob
     from app.sync.library import run_library_dedup
-    monkeypatch.setattr(app.config, "get_settings",
-                        lambda: SimpleNamespace(music_dir=str(tmp_path)))
+
+    monkeypatch.setattr(
+        app.config, "get_settings", lambda: SimpleNamespace(music_dir=str(tmp_path))
+    )
 
     orphan = tmp_path / "orphan.mp3"
     orphan.write_bytes(os.urandom(1024))
@@ -324,8 +370,10 @@ def test_run_library_dedup_sidecars(tmp_path, monkeypatch):
     import app.config
     from app.db.models import SyncJob
     from app.sync.library import run_library_dedup
-    monkeypatch.setattr(app.config, "get_settings",
-                        lambda: SimpleNamespace(music_dir=str(tmp_path)))
+
+    monkeypatch.setattr(
+        app.config, "get_settings", lambda: SimpleNamespace(music_dir=str(tmp_path))
+    )
 
     song = tmp_path / "song.mp3"
     song.write_bytes(os.urandom(1024))
@@ -352,6 +400,7 @@ def test_run_library_dedup_sidecars(tmp_path, monkeypatch):
 def test_slskd_429_retried(monkeypatch):
     import app.downloaders.slskd as mod
     from app.downloaders.slskd import SlskdDownloader
+
     monkeypatch.setattr(mod.time, "sleep", lambda s: None)
 
     posts = []
@@ -404,6 +453,7 @@ def test_slskd_429_gives_up_after_retries(monkeypatch):
     import httpx as real_httpx
     import app.downloaders.slskd as mod
     from app.downloaders.slskd import SlskdDownloader
+
     monkeypatch.setattr(mod.time, "sleep", lambda s: None)
 
     class Resp:
@@ -449,6 +499,7 @@ def test_slskd_429_gives_up_after_retries(monkeypatch):
 def test_slskd_custom_query_overrides_auto_queries(monkeypatch):
     import app.downloaders.slskd as mod
     from app.downloaders.slskd import SlskdDownloader
+
     monkeypatch.setattr(mod.time, "sleep", lambda s: None)
     seen = []
 

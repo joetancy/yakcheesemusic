@@ -39,25 +39,55 @@ def _mem_factory():
 
 def test_sweeper_launches_due_and_adopts_schedule(monkeypatch):
     import app.sync.batch as batch
+
     calls = []
-    monkeypatch.setattr(batch, "run_playlist_sync",
-                        lambda sf, pid, jid: calls.append((pid, jid)))
+    monkeypatch.setattr(
+        batch, "run_playlist_sync", lambda sf, pid, jid: calls.append((pid, jid))
+    )
 
     factory = _mem_factory()
     db = factory()
     past = datetime(2020, 1, 1)
-    db.add(Playlist(name="Due", provider="spotify", url="u1",
-                    sync_enabled=True, sync_interval="daily_0330",
-                    next_sync_at=past))
-    db.add(Playlist(name="Manual", provider="spotify", url="u2",
-                    sync_enabled=False, sync_interval="daily_0330",
-                    next_sync_at=past))
-    db.add(Playlist(name="Fresh", provider="spotify", url="u3",
-                    sync_enabled=True, sync_interval="daily_0330",
-                    next_sync_at=None))
-    db.add(Playlist(name="Off", provider="spotify", url="u4",
-                    sync_enabled=True, sync_interval="off",
-                    next_sync_at=past))
+    db.add(
+        Playlist(
+            name="Due",
+            provider="spotify",
+            url="u1",
+            sync_enabled=True,
+            sync_interval="daily_0330",
+            next_sync_at=past,
+        )
+    )
+    db.add(
+        Playlist(
+            name="Manual",
+            provider="spotify",
+            url="u2",
+            sync_enabled=False,
+            sync_interval="daily_0330",
+            next_sync_at=past,
+        )
+    )
+    db.add(
+        Playlist(
+            name="Fresh",
+            provider="spotify",
+            url="u3",
+            sync_enabled=True,
+            sync_interval="daily_0330",
+            next_sync_at=None,
+        )
+    )
+    db.add(
+        Playlist(
+            name="Off",
+            provider="spotify",
+            url="u4",
+            sync_enabled=True,
+            sync_interval="off",
+            next_sync_at=past,
+        )
+    )
     db.commit()
     db.close()
 

@@ -14,18 +14,59 @@
 <span id="result" class="action-feedback muted" role="status" aria-live="polite"></span>
 </section>
 <h2>Candidates (showing {{ shown_usable }} of {{ total_usable }} usable, {{ total_candidates - total_usable }} rejected)</h2>
-<div class="table-container" role="region" aria-label="Candidates; scroll horizontally to see all columns" tabindex="0"><table class="table rtable"><thead><tr><th>Score</th><th>Verdict</th><th>Quality</th><th>Title</th><th>Artist</th><th>Source file</th><th>Actions</th></tr></thead><tbody>
-{% for c in candidates %}<tr{% if c.rejected %} style="opacity:.45"{% endif %}>
+<div class="action-row candidate-source-tabs" role="tablist" aria-label="Filter candidate results by source">
+<button class="btn" type="button" role="tab" id="candidate-tab-all" aria-selected="true" aria-controls="candidate-results" tabindex="0" data-provider-filter="all">All results</button>
+<button class="btn" type="button" data-variant="outline" role="tab" id="candidate-tab-soulseek" aria-selected="false" aria-controls="candidate-results" tabindex="-1" data-provider-filter="soulseek">Soulseek</button>
+<button class="btn" type="button" data-variant="outline" role="tab" id="candidate-tab-musicdl" aria-selected="false" aria-controls="candidate-results" tabindex="-1" data-provider-filter="musicdl">Musicdl</button>
+</div>
+<p id="candidate-filter-empty" class="empty-state" role="status" hidden>No results from this source.</p>
+<div class="table-container" id="candidate-results" role="tabpanel" aria-labelledby="candidate-tab-all" tabindex="0"><table class="table rtable"><thead><tr><th>Score</th><th>Verdict</th><th>Quality</th><th>Title</th><th>Artist</th><th>Source file</th><th>Actions</th></tr></thead><tbody>
+{% for c in candidates %}<tr data-candidate-result data-provider="{{ c.provider }}"{% if c.rejected %} style="opacity:.45"{% endif %}>
 <td data-label="Score">{{ "%.1f"|format(c.score or 0) }}</td><td data-label="Verdict">{{ c.verdict or "—" }}</td>
 <td data-label="Quality">{{ c.quality or "—" }}</td><td data-label="Title">{{ c.title }}</td><td data-label="Artist">{{ c.artist }}</td>
 <td data-label="Source file"><span>{{ c.source or "—" }}</span></td>
-<td data-label="Actions"><div class="action-buttons">{% if c.rejected %}<span class="badge" data-variant="destructive">Rejected</span> <button class="btn" data-variant="outline" data-size="sm" onclick="unreject({{ c.id }},this)">Undo</button>
-{% else %}<button class="btn" data-size="sm" onclick="useCand({{ c.id }},this)">Use this</button> <button class="btn" data-variant="outline" data-size="sm" onclick="reject({{ c.id }},this)">Reject</button>{% endif %}</div></td>
+<td data-label="Actions"><div class="action-buttons">{% if c.rejected %}<span>Rejected</span> <button class="btn" data-variant="outline" onclick="unreject({{ c.id }},this)">Undo rejection</button>
+{% else %}<button class="btn" onclick="useCand({{ c.id }},this)">Use this candidate</button> <button class="btn" data-variant="outline" onclick="reject({{ c.id }},this)">Reject</button>{% endif %}</div></td>
 </tr>{% else %}<tr><td colspan="7">No candidates yet — hit Search again.</td></tr>{% endfor %}
 </tbody></table></div>
 {% if shown_usable < total_usable %}<p><a class="btn" href="/review/{{ track.id }}?shown={{ shown_usable + 10 }}">Show 10 more ({{ total_usable - shown_usable }} remaining)</a></p>{% endif %}
 <script>
 const TID = {{ track.id }};
+const sourceTabs=[...document.querySelectorAll('[data-provider-filter]')];
+const candidateRows=[...document.querySelectorAll('[data-candidate-result]')];
+function filterCandidates(source){
+  const tab=sourceTabs.find(item=>item.dataset.providerFilter===source);
+  if(!tab)return;
+  sourceTabs.forEach(item=>{
+    const selected=item===tab;
+    item.setAttribute('aria-selected',String(selected));
+    item.tabIndex=selected?0:-1;
+    if(selected)item.removeAttribute('data-variant');else item.dataset.variant='outline';
+  });
+  document.getElementById('candidate-results').setAttribute('aria-labelledby',tab.id);
+  let visible=0;
+  candidateRows.forEach(row=>{
+    const provider=row.dataset.provider.toLowerCase();
+    const matches=source==='all'||provider===source||(source==='soulseek'&&provider==='slskd');
+    row.hidden=!matches;
+    if(matches)visible++;
+  });
+  document.getElementById('candidate-filter-empty').hidden=visible>0;
+}
+sourceTabs.forEach((tab,index)=>{
+  tab.addEventListener('click',()=>filterCandidates(tab.dataset.providerFilter));
+  tab.addEventListener('keydown',event=>{
+    let next=index;
+    if(event.key==='ArrowRight')next=(index+1)%sourceTabs.length;
+    else if(event.key==='ArrowLeft')next=(index+sourceTabs.length-1)%sourceTabs.length;
+    else if(event.key==='Home')next=0;
+    else if(event.key==='End')next=sourceTabs.length-1;
+    else return;
+    event.preventDefault();
+    sourceTabs[next].focus();
+    filterCandidates(sourceTabs[next].dataset.providerFilter);
+  });
+});
 async function post(url, body, button){
   const el=document.getElementById('result');setFeedback(el,'Updating track…','loading');setBusy(button,true,'Working…');
   try{

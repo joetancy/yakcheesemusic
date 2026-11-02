@@ -6,6 +6,7 @@ Matches the existing library convention:
 Only downloaded files (local_path exists on disk) are included, in
 playlist order. Old Yubal files are never touched (different filenames).
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,7 +25,9 @@ HEADER = "#EXTM3U"
 
 
 def m3u_path(playlist_dir: str, playlist: Playlist) -> Path:
-    base = sanitize(playlist.name or f"playlist-{playlist.id}", f"playlist-{playlist.id}")
+    base = sanitize(
+        playlist.name or f"playlist-{playlist.id}", f"playlist-{playlist.id}"
+    )
     plain = Path(playlist_dir) / f"{base}.m3u"
     dodge = Path(playlist_dir) / f"{base} [{playlist.id}].m3u"
     if plain.exists() and _is_ours(plain, playlist):
@@ -55,20 +58,29 @@ def _is_ours(path: Path, playlist: Playlist) -> bool:
 
 
 def _display(artist: str, title: str) -> str:
-    return " - ".join(p for p in [artist.strip(), title.strip()] if p).replace("\n", " ")
+    return " - ".join(p for p in [artist.strip(), title.strip()] if p).replace(
+        "\n", " "
+    )
 
 
-def generate_m3u(db: Session, playlist_id: int, music_dir: str,
-                 playlist_dir: str) -> dict:
+def generate_m3u(
+    db: Session, playlist_id: int, music_dir: str, playlist_dir: str
+) -> dict:
     playlist = db.get(Playlist, playlist_id)
     if not playlist:
         raise ValueError(f"Playlist {playlist_id} not found")
     Path(playlist_dir).mkdir(parents=True, exist_ok=True)
-    members = db.execute(
-        select(PlaylistTrack).where(
-            PlaylistTrack.playlist_id == playlist_id,
-            PlaylistTrack.active.is_(True))
-        .order_by(PlaylistTrack.position)).scalars().all()
+    members = (
+        db.execute(
+            select(PlaylistTrack)
+            .where(
+                PlaylistTrack.playlist_id == playlist_id, PlaylistTrack.active.is_(True)
+            )
+            .order_by(PlaylistTrack.position)
+        )
+        .scalars()
+        .all()
+    )
     lines = [HEADER, f"#PLAYLIST:{playlist.name}"]
     included = 0
     missing = 0
@@ -88,6 +100,11 @@ def generate_m3u(db: Session, playlist_id: int, music_dir: str,
     tmp = dest.with_suffix(".m3u.tmp")
     tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
     os.replace(tmp, dest)
-    log.info("playlist=%s m3u=%s included=%s missing=%s",
-             playlist.name, dest, included, missing)
+    log.info(
+        "playlist=%s m3u=%s included=%s missing=%s",
+        playlist.name,
+        dest,
+        included,
+        missing,
+    )
     return {"path": str(dest), "included": included, "missing": missing}

@@ -23,6 +23,7 @@ def _file(path):
 def test_shared_file_kept():
     db = _mem_db()
     import tempfile
+
     music = tempfile.mkdtemp()
     shared = _file(os.path.join(music, "A", "shared.flac"))
     solo = _file(os.path.join(music, "B", "solo.flac"))
@@ -34,14 +35,31 @@ def test_shared_file_kept():
     t2 = Track(title="solo", local_path=solo, status="completed")
     db.add_all([t1, t2])
     db.flush()
-    db.add_all([
-        PlaylistTrack(playlist_id=pa.id, track_id=t1.id, provider_track_id="s",
-                      position=0, active=True),
-        PlaylistTrack(playlist_id=pb.id, track_id=t1.id, provider_track_id="s",
-                      position=0, active=True),
-        PlaylistTrack(playlist_id=pa.id, track_id=t2.id, provider_track_id="o",
-                      position=1, active=True),
-    ])
+    db.add_all(
+        [
+            PlaylistTrack(
+                playlist_id=pa.id,
+                track_id=t1.id,
+                provider_track_id="s",
+                position=0,
+                active=True,
+            ),
+            PlaylistTrack(
+                playlist_id=pb.id,
+                track_id=t1.id,
+                provider_track_id="s",
+                position=0,
+                active=True,
+            ),
+            PlaylistTrack(
+                playlist_id=pa.id,
+                track_id=t2.id,
+                provider_track_id="o",
+                position=1,
+                active=True,
+            ),
+        ]
+    )
     db.commit()
 
     assert delete_track_file(db, t1, pa.id, music) is None  # used by B
@@ -64,14 +82,17 @@ def test_prune_never_escapes_music_dir(tmp_path):
 
 def test_delete_endpoint_with_files(client, tmp_path, monkeypatch):
     import app.config
+
     music = str(tmp_path / "music")
 
     class _S:
         music_dir = music
 
     monkeypatch.setattr(app.config, "get_settings", lambda: _S())
-    pid = client.post("/api/playlists", json={
-        "url": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"}).json()["id"]
+    pid = client.post(
+        "/api/playlists",
+        json={"url": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"},
+    ).json()["id"]
     # no tracks seeded on the isolated client DB: flag path is a no-op
     r = client.delete(f"/api/playlists/{pid}?delete_files=true")
     assert r.status_code == 200

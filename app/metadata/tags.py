@@ -1,4 +1,5 @@
 """Read embedded tags from audio files (mutagen, read-only)."""
+
 from __future__ import annotations
 
 
@@ -34,6 +35,7 @@ def _year(s: str | None) -> int | None:
     if not s:
         return None
     import re
+
     m = re.search(r"(19|20)\d{2}", str(s))
     return int(m.group(0)) if m else None
 
@@ -41,8 +43,14 @@ def _year(s: str | None) -> int | None:
 def read_tags(path: str) -> dict:
     """Return {artist, album, title, track_number, year} (missing keys = None)."""
     from mutagen import File as MFile
-    out: dict = {"artist": None, "album": None, "title": None,
-                 "track_number": None, "year": None}
+
+    out: dict = {
+        "artist": None,
+        "album": None,
+        "title": None,
+        "track_number": None,
+        "year": None,
+    }
     try:
         audio = MFile(path)
     except Exception:
@@ -51,6 +59,7 @@ def read_tags(path: str) -> dict:
     if not tags:
         try:  # tag-only files (e.g. fresh ID3) have no parseable audio stream
             from mutagen.id3 import ID3
+
             tags = ID3(path)
         except Exception:
             return out

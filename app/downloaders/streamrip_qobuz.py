@@ -7,6 +7,7 @@ Auth: email + md5(password); streamrip bootstraps app_id/secrets on first
 login and persists them to our config file, so the file is generated once
 and then only our fields are refreshed.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -43,6 +44,7 @@ def ensure_config() -> str | None:
     if os.path.exists(CONFIG_PATH):
         try:
             import tomllib
+
             with open(CONFIG_PATH, "rb") as f:
                 data = tomllib.load(f)
             q = data.get("qobuz", {})
@@ -53,6 +55,7 @@ def ensure_config() -> str | None:
         except Exception as e:
             log.warning("could not read %s: %s", CONFIG_PATH, e)
     import json
+
     os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
     deezer_lines = ""
     if deezer:
@@ -107,9 +110,12 @@ def _track_to_result(item: dict) -> SearchResult | None:
     return SearchResult(
         provider="qobuz",
         provider_track_id=f"qobuz:{tid}",
-        title=str(title), artist=str(artist), album=str(album),
+        title=str(title),
+        artist=str(artist),
+        album=str(album),
         duration_ms=duration_ms,
-        quality="Qobuz", format=None,
+        quality="Qobuz",
+        format=None,
         source_url=item.get("url") or (f"https://www.qobuz.com/track/{tid}"),
     )
 
@@ -127,6 +133,7 @@ class QobuzDownloader(DownloaderBase):
     def _new_client(self):
         from streamrip.config import Config
         from streamrip.client.qobuz import QobuzClient
+
         return QobuzClient(Config(self._config_path))
 
     async def _asearch(self, query: str, limit: int = 10) -> list[dict]:
@@ -140,8 +147,9 @@ class QobuzDownloader(DownloaderBase):
             except Exception:
                 pass
 
-    def search(self, title: str, artist: str, album: str = "",
-               query: str | None = None) -> list[SearchResult]:
+    def search(
+        self, title: str, artist: str, album: str = "", query: str | None = None
+    ) -> list[SearchResult]:
         q = query.strip() if query and query.strip() else f"{artist} {title}".strip()
         if not q:
             return []
@@ -160,6 +168,7 @@ class QobuzDownloader(DownloaderBase):
     async def _adownload(self, track_id: str, dest_dir: str) -> str:
         from streamrip.config import Config
         from streamrip.client.qobuz import QobuzClient
+
         os.makedirs(dest_dir, exist_ok=True)
         client = QobuzClient(Config(self._config_path))
         await client.login()
@@ -179,6 +188,7 @@ class QobuzDownloader(DownloaderBase):
         """Find the downloaded audio file (streamrip names it, not us)."""
         import glob
         import time
+
         best, best_mtime = None, 0.0
         for p in glob.glob(os.path.join(dest_dir, "*")):
             if os.path.splitext(p)[1].lower() not in AUDIO_EXTS:
@@ -200,7 +210,8 @@ class QobuzDownloader(DownloaderBase):
         if not tid:
             raise RuntimeError("bad qobuz track id")
         try:
-            return asyncio.run(asyncio.wait_for(
-                self._adownload(tid, dest_dir), timeout=600))
+            return asyncio.run(
+                asyncio.wait_for(self._adownload(tid, dest_dir), timeout=600)
+            )
         except Exception as e:
             raise RuntimeError(f"qobuz download failed: {e}")

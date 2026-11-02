@@ -1,4 +1,5 @@
 """Playlist provider interface. Full app must not depend on Spotify/YT specifics."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

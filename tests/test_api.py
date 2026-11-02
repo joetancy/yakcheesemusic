@@ -9,19 +9,29 @@ def test_create_playlist_validation(client):
     r = client.post("/api/playlists", json={"url": "https://example.com/foo"})
     assert r.status_code == 400
     # spotify URL accepted (no network call on create)
-    r = client.post("/api/playlists", json={
-        "url": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
-        "name": "test"})
+    r = client.post(
+        "/api/playlists",
+        json={
+            "url": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+            "name": "test",
+        },
+    )
     assert r.status_code == 200
     assert r.json()["provider"] == "spotify"
 
 
 def test_create_playlist_preserves_url_query_params(client):
-    pid = client.post("/api/playlists", json={
-        "url": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc&utm_source=copy-link",
-        "name": "test"}).json()["id"]
-    assert client.get(f"/api/playlists/{pid}").json()["url"] == \
-        "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc&utm_source=copy-link"
+    pid = client.post(
+        "/api/playlists",
+        json={
+            "url": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc&utm_source=copy-link",
+            "name": "test",
+        },
+    ).json()["id"]
+    assert (
+        client.get(f"/api/playlists/{pid}").json()["url"]
+        == "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc&utm_source=copy-link"
+    )
 
 
 def test_create_playlist_preserves_spotify_locale(client):
@@ -31,39 +41,48 @@ def test_create_playlist_preserves_spotify_locale(client):
 
 
 def test_delete_playlist_cleans_orphans(client):
-    pid = client.post("/api/playlists", json={
-        "url": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
-        "name": "tmp"}).json()["id"]
+    pid = client.post(
+        "/api/playlists",
+        json={
+            "url": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+            "name": "tmp",
+        },
+    ).json()["id"]
     r = client.delete(f"/api/playlists/{pid}")
     assert r.status_code == 200
     assert r.json() == {"ok": True, "deleted_files": 0, "kept_files": 0}
     assert client.get(f"/api/playlists/{pid}").status_code == 404
 
 
-import pytest as _pytest
-from fastapi.testclient import TestClient as _TestClient
-from sqlalchemy import create_engine as _create_engine
-from sqlalchemy.orm import sessionmaker as _sessionmaker
-from sqlalchemy.pool import StaticPool as _StaticPool
+import pytest as _pytest  # noqa: E402
+from fastapi.testclient import TestClient as _TestClient  # noqa: E402
+from sqlalchemy import create_engine as _create_engine  # noqa: E402
+from sqlalchemy.orm import sessionmaker as _sessionmaker  # noqa: E402
+from sqlalchemy.pool import StaticPool as _StaticPool  # noqa: E402
 
-from app.db.database import Base as _Base, get_db as _get_db
-from app.db.models import Track as _Track
-from app.main import app as _app
+from app.db.database import Base as _Base, get_db as _get_db  # noqa: E402
+from app.db.models import Track as _Track  # noqa: E402
+from app.main import app as _app  # noqa: E402
 
 
 @_pytest.fixture
 def seeded_client():
-    engine = _create_engine("sqlite://", connect_args={"check_same_thread": False},
-                            poolclass=_StaticPool)
+    engine = _create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=_StaticPool
+    )
     _Base.metadata.create_all(bind=engine)
-    TestingSession = _sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+    TestingSession = _sessionmaker(
+        bind=engine, autoflush=False, autocommit=False, future=True
+    )
     db = TestingSession()
-    db.add_all([
-        _Track(title="A", artist="X", status="needs_review"),
-        _Track(title="B", artist="Y", status="failed"),
-        _Track(title="C", artist="Z", status="completed"),
-        _Track(title="D", artist="W", status="skipped"),
-    ])
+    db.add_all(
+        [
+            _Track(title="A", artist="X", status="needs_review"),
+            _Track(title="B", artist="Y", status="failed"),
+            _Track(title="C", artist="Z", status="completed"),
+            _Track(title="D", artist="W", status="skipped"),
+        ]
+    )
     db.commit()
     db.close()
 
@@ -84,36 +103,72 @@ def test_retry_all_resets_review_and_failed(seeded_client):
     r = seeded_client.post("/api/tracks/retry-all")
     assert r.status_code == 200
     assert r.json() == {"ok": True, "reset": 2}
-    assert len(seeded_client.get("/api/tracks", params={"status": "pending"}).json()) == 2
-    assert seeded_client.get("/api/tracks", params={"status": "completed"}).json()[0]["title"] == "C"
-    assert seeded_client.get("/api/tracks", params={"status": "skipped"}).json()[0]["title"] == "D"
+    assert (
+        len(seeded_client.get("/api/tracks", params={"status": "pending"}).json()) == 2
+    )
+    assert (
+        seeded_client.get("/api/tracks", params={"status": "completed"}).json()[0][
+            "title"
+        ]
+        == "C"
+    )
+    assert (
+        seeded_client.get("/api/tracks", params={"status": "skipped"}).json()[0][
+            "title"
+        ]
+        == "D"
+    )
 
 
 def test_source_settings_disable_manual_searches(seeded_client):
-    settings = seeded_client.get('/api/settings').json()
-    assert settings['source_slskd_enabled'] is True
-    assert settings['source_musicdl_enabled'] is True
-    response = seeded_client.patch('/api/settings', json={
-        'source_slskd_enabled': False, 'source_musicdl_enabled': False})
+    settings = seeded_client.get("/api/settings").json()
+    assert settings["source_slskd_enabled"] is True
+    assert settings["source_musicdl_enabled"] is True
+    response = seeded_client.patch(
+        "/api/settings",
+        json={"source_slskd_enabled": False, "source_musicdl_enabled": False},
+    )
     assert response.status_code == 200
-    settings = seeded_client.get('/api/settings').json()
-    assert settings['source_slskd_enabled'] is False
-    assert settings['source_musicdl_enabled'] is False
-    tid = seeded_client.get('/api/tracks', params={'status': 'needs_review'}).json()[0]['id']
-    assert seeded_client.post(f'/api/tracks/{tid}/search').status_code == 403
-    assert seeded_client.post(f'/api/tracks/{tid}/search-musicdl').status_code == 403
-    assert seeded_client.patch('/api/settings', json={'source_slskd_enabled': 'yes'}).status_code == 422
+    settings = seeded_client.get("/api/settings").json()
+    assert settings["source_slskd_enabled"] is False
+    assert settings["source_musicdl_enabled"] is False
+    tid = seeded_client.get("/api/tracks", params={"status": "needs_review"}).json()[0][
+        "id"
+    ]
+    assert seeded_client.post(f"/api/tracks/{tid}/search").status_code == 403
+    assert seeded_client.post(f"/api/tracks/{tid}/search-musicdl").status_code == 403
+    assert (
+        seeded_client.patch(
+            "/api/settings", json={"source_slskd_enabled": "yes"}
+        ).status_code
+        == 422
+    )
 
 
 def test_review_shows_enabled_musicdl_when_soulseek_disabled(seeded_client):
-    response = seeded_client.patch('/api/settings', json={
-        'source_slskd_enabled': False, 'source_musicdl_enabled': True})
+    response = seeded_client.patch(
+        "/api/settings",
+        json={"source_slskd_enabled": False, "source_musicdl_enabled": True},
+    )
     assert response.status_code == 200
-    tid = seeded_client.get('/api/tracks', params={'status': 'needs_review'}).json()[0]['id']
-    html = seeded_client.get(f'/review/{tid}').text
-    assert 'Soulseek is disabled.' in html
+    tid = seeded_client.get("/api/tracks", params={"status": "needs_review"}).json()[0][
+        "id"
+    ]
+    html = seeded_client.get(f"/review/{tid}").text
+    assert "Soulseek is disabled." in html
     assert 'onclick="searchMusicdl(this)" disabled' not in html
     assert 'onclick="searchNow(this)" disabled' in html
+
+
+def test_review_detail_has_accessible_source_tabs(seeded_client):
+    tid = seeded_client.get("/api/tracks", params={"status": "needs_review"}).json()[0][
+        "id"
+    ]
+    html = seeded_client.get(f"/review/{tid}").text
+    assert 'role="tablist" aria-label="Filter candidate results by source"' in html
+    assert 'data-provider-filter="soulseek"' in html
+    assert 'data-provider-filter="musicdl"' in html
+    assert 'id="candidate-results" role="tabpanel"' in html
 
 
 def test_retry_single_track(seeded_client):
@@ -122,7 +177,9 @@ def test_retry_single_track(seeded_client):
     assert r.status_code == 200
     assert r.json() == {"ok": True, "status": "pending"}
     assert seeded_client.post("/api/tracks/9999/retry").status_code == 404
-    cid = seeded_client.get("/api/tracks", params={"status": "completed"}).json()[0]["id"]
+    cid = seeded_client.get("/api/tracks", params={"status": "completed"}).json()[0][
+        "id"
+    ]
     r = seeded_client.post(f"/api/tracks/{cid}/retry")
     assert r.status_code == 200  # completed tracks can opt back into search
     assert r.json() == {"ok": True, "status": "pending"}
@@ -131,6 +188,7 @@ def test_retry_single_track(seeded_client):
 
 def test_search_accepts_custom_query(seeded_client, monkeypatch):
     import app.api.tracks as tracks_mod
+
     seen = {}
 
     def fake_run(tid, query=None, session_factory=None):
@@ -153,6 +211,7 @@ def test_run_search_empty_results(monkeypatch):
     from app.api.tracks import _run_search
     from app.db.database import Base as _Base
     from app.db.models import Track as _T
+
     monkeypatch.setattr(search_mod, "search_candidates", lambda *a, **k: [])
     e = _ce("sqlite://", connect_args={"check_same_thread": False})
     _Base.metadata.create_all(bind=e)
@@ -173,6 +232,7 @@ def test_review_detail_paging_counts():
     from app.db.database import Base as _Base, get_db as _gdb
     from app.db.models import Track as _T, DownloadCandidate as _DC
     from app.main import app as _app
+
     e = _ce("sqlite://", connect_args={"check_same_thread": False}, poolclass=_SP)
     _Base.metadata.create_all(bind=e)
     S = _sm(bind=e, autoflush=False, autocommit=False, future=True)
@@ -181,9 +241,16 @@ def test_review_detail_paging_counts():
     db.add(t)
     db.commit()
     for i in range(25):
-        db.add(_DC(track_id=t.id, provider="soulseek",
-                   provider_track_id=f"u/f{i}.mp3", title=f"S{i}",
-                   artist="A", score=80.0 - i))
+        db.add(
+            _DC(
+                track_id=t.id,
+                provider="soulseek",
+                provider_track_id=f"u/f{i}.mp3",
+                title=f"S{i}",
+                artist="A",
+                score=80.0 - i,
+            )
+        )
     db.commit()
     db.close()
 
@@ -211,12 +278,15 @@ def test_review_detail_paging_counts():
 
 def test_scan_endpoint_launches_job(seeded_client, monkeypatch):
     import app.sync.scan as scan_mod
+
     calls = []
-    monkeypatch.setattr(scan_mod, "run_scan_job",
-                        lambda sf, pid, jid: calls.append((pid, jid)))
-    pid = seeded_client.post("/api/playlists", json={
-        "url": "https://open.spotify.com/playlist/abc123",
-        "name": "ScanMe"}).json()["id"]
+    monkeypatch.setattr(
+        scan_mod, "run_scan_job", lambda sf, pid, jid: calls.append((pid, jid))
+    )
+    pid = seeded_client.post(
+        "/api/playlists",
+        json={"url": "https://open.spotify.com/playlist/abc123", "name": "ScanMe"},
+    ).json()["id"]
     r = seeded_client.post(f"/api/playlists/{pid}/scan")
     assert r.status_code == 200
     assert r.json()["ok"] is True and "job_id" in r.json()
@@ -234,10 +304,23 @@ def test_run_scan_job_records_counts(monkeypatch):
     from app.providers.base import ProviderPlaylist, ProviderTrack
     from app.providers.spotify import SpotifyProvider
     from app.sync.scan import run_scan_job
-    monkeypatch.setattr(SpotifyProvider, "get_playlist", lambda self, url: ProviderPlaylist(
-        provider="spotify", provider_playlist_id="abc", name="N", url="",
-        track_count=1, tracks=[ProviderTrack(
-            provider_track_id="AAA", title="T", artist="A", position=0)]))
+
+    monkeypatch.setattr(
+        SpotifyProvider,
+        "get_playlist",
+        lambda self, url: ProviderPlaylist(
+            provider="spotify",
+            provider_playlist_id="abc",
+            name="N",
+            url="",
+            track_count=1,
+            tracks=[
+                ProviderTrack(
+                    provider_track_id="AAA", title="T", artist="A", position=0
+                )
+            ],
+        ),
+    )
     e = _ce("sqlite://", connect_args={"check_same_thread": False})
     _Base.metadata.create_all(bind=e)
     S = _sm(bind=e, future=True)

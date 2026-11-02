@@ -3,6 +3,7 @@
 Second fallback after Qobuz. Auth is a premium account `arl` cookie.
 Disabled automatically when DEEZER_ARL is unset.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,6 +32,7 @@ def ensure_config() -> str | None:
     if not configured():
         return None
     import tomllib
+
     data: dict = {}
     if os.path.exists(CONFIG_PATH):
         try:
@@ -110,9 +112,12 @@ def _track_to_result(item: dict) -> SearchResult | None:
     return SearchResult(
         provider="deezer",
         provider_track_id=f"deezer:{tid}",
-        title=str(title), artist=str(artist), album=str(album),
+        title=str(title),
+        artist=str(artist),
+        album=str(album),
         duration_ms=duration_ms,
-        quality="Deezer", format=None,
+        quality="Deezer",
+        format=None,
         source_url=f"https://www.deezer.com/track/{tid}",
     )
 
@@ -130,6 +135,7 @@ class DeezerDownloader(DownloaderBase):
     def _new_client(self):
         from streamrip.config import Config
         from streamrip.client.deezer import DeezerClient
+
         return DeezerClient(Config(self._config_path))
 
     async def _asearch(self, query: str, limit: int = 10) -> list[dict]:
@@ -143,8 +149,9 @@ class DeezerDownloader(DownloaderBase):
             except Exception:
                 pass
 
-    def search(self, title: str, artist: str, album: str = "",
-               query: str | None = None) -> list[SearchResult]:
+    def search(
+        self, title: str, artist: str, album: str = "", query: str | None = None
+    ) -> list[SearchResult]:
         q = query.strip() if query and query.strip() else f"{artist} {title}".strip()
         if not q:
             return []
@@ -163,6 +170,7 @@ class DeezerDownloader(DownloaderBase):
     async def _adownload(self, track_id: str, dest_dir: str) -> str:
         from streamrip.config import Config
         from streamrip.client.deezer import DeezerClient
+
         os.makedirs(dest_dir, exist_ok=True)
         client = DeezerClient(Config(self._config_path))
         await client.login()
@@ -181,6 +189,7 @@ class DeezerDownloader(DownloaderBase):
     def _locate(dest_dir: str) -> str:
         import glob
         import time
+
         best, best_mtime = None, 0.0
         for p in glob.glob(os.path.join(dest_dir, "*")):
             if os.path.splitext(p)[1].lower() not in AUDIO_EXTS:
@@ -202,7 +211,8 @@ class DeezerDownloader(DownloaderBase):
         if not tid:
             raise RuntimeError("bad deezer track id")
         try:
-            return asyncio.run(asyncio.wait_for(
-                self._adownload(tid, dest_dir), timeout=600))
+            return asyncio.run(
+                asyncio.wait_for(self._adownload(tid, dest_dir), timeout=600)
+            )
         except Exception as e:
             raise RuntimeError(f"deezer download failed: {e}")

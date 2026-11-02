@@ -4,6 +4,7 @@ rsgain custom -s i -l <target>: scan + write tags on every run, always
 overwriting existing ReplayGain tags. Album gain is deferred
 until album grouping is reliable (plan §13).
 """
+
 from __future__ import annotations
 
 import logging
@@ -12,8 +13,20 @@ import subprocess
 
 log = logging.getLogger("yakcheesemusic")
 
-SUPPORTED_EXTS = {".mp3", ".flac", ".m4a", ".mp4", ".aac", ".ogg", ".oga",
-                  ".opus", ".wav", ".aif", ".aiff", ".wv"}
+SUPPORTED_EXTS = {
+    ".mp3",
+    ".flac",
+    ".m4a",
+    ".mp4",
+    ".aac",
+    ".ogg",
+    ".oga",
+    ".opus",
+    ".wav",
+    ".aif",
+    ".aiff",
+    ".wv",
+}
 
 
 def scan_library(music_dir: str) -> list[str]:
@@ -28,19 +41,27 @@ def scan_library(music_dir: str) -> list[str]:
 
 
 def build_command(paths: list[str], target_lufs: float) -> list[str]:
-    return ["rsgain", "custom", "-s", "i", "-l", str(target_lufs),
-            "-q", *paths]
+    return ["rsgain", "custom", "-s", "i", "-l", str(target_lufs), "-q", *paths]
 
 
-def apply_replaygain(paths: list[str], target_lufs: float = -14.0,
-                     chunk: int = 200, timeout_s: int = 1200) -> tuple[int, list[str]]:
+def apply_replaygain(
+    paths: list[str],
+    target_lufs: float = -14.0,
+    chunk: int = 200,
+    timeout_s: int = 1200,
+) -> tuple[int, list[str]]:
     """Tag files; return (ok_count, failed_paths). Raises on rsgain missing."""
     ok, failed = 0, []
     for i in range(0, len(paths), chunk):
-        batch = paths[i:i + chunk]
+        batch = paths[i : i + chunk]
         try:
-            subprocess.run(build_command(batch, target_lufs), check=True,
-                           capture_output=True, text=True, timeout=timeout_s)
+            subprocess.run(
+                build_command(batch, target_lufs),
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout_s,
+            )
             ok += len(batch)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             log.warning("rsgain batch %s failed: %s", i // chunk, e)
@@ -53,17 +74,23 @@ def apply_one(path: str, target_lufs: float = -14.0) -> bool:
     return ok == 1
 
 
-def run_library_sweep(session_factory, job_id: int, music_dir: str,
-                      target_lufs: float) -> None:
+def run_library_sweep(
+    session_factory, job_id: int, music_dir: str, target_lufs: float
+) -> None:
     """Background full-library sweep, progress recorded on the SyncJob."""
     from datetime import datetime, timezone
     from app.db.models import SyncJob
+
     db = session_factory()
     try:
         job = db.get(SyncJob, job_id)
         files = scan_library(music_dir)
-        log.info("job=%s action=replaygain status=start files=%s target=%s",
-                 job_id, len(files), target_lufs)
+        log.info(
+            "job=%s action=replaygain status=start files=%s target=%s",
+            job_id,
+            len(files),
+            target_lufs,
+        )
         if job:
             job.tracks_seen = len(files)
             db.commit()
@@ -76,14 +103,19 @@ def run_library_sweep(session_factory, job_id: int, music_dir: str,
             job.status = "success" if not failed else "failed"
             job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
             db.commit()
-        log.info("job=%s action=replaygain status=done ok=%s failed=%s",
-                 job_id, ok, len(failed))
+        log.info(
+            "job=%s action=replaygain status=done ok=%s failed=%s",
+            job_id,
+            ok,
+            len(failed),
+        )
     except Exception as e:
         log.exception("job=%s action=replaygain status=error", job_id)
         try:
             job = db.get(SyncJob, job_id)
             if job:
                 from datetime import datetime, timezone
+
                 job.status = "failed"
                 job.error = str(e)[:1000]
                 job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)

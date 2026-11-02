@@ -1,4 +1,5 @@
 """Playlist scan: read remote playlist, reconcile membership in SQLite (Phase 2/8)."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -29,12 +30,16 @@ def scan_playlist(db: Session, playlist_id: int) -> dict:
     added = 0
     for remote_track in remote.tracks:
         seen_ids.add(remote_track.provider_track_id)
-        existing = db.execute(
-            select(PlaylistTrack).where(
-                PlaylistTrack.playlist_id == playlist.id,
-                PlaylistTrack.provider_track_id == remote_track.provider_track_id,
+        existing = (
+            db.execute(
+                select(PlaylistTrack).where(
+                    PlaylistTrack.playlist_id == playlist.id,
+                    PlaylistTrack.provider_track_id == remote_track.provider_track_id,
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         if existing:
             existing.position = remote_track.position
             existing.source_title = remote_track.title
@@ -45,28 +50,42 @@ def scan_playlist(db: Session, playlist_id: int) -> dict:
             existing.last_seen_at = datetime.now(timezone.utc).replace(tzinfo=None)
         else:
             track = Track(
-                title=remote_track.title, artist=remote_track.artist,
-                album=remote_track.album, duration_ms=remote_track.duration_ms,
-                isrc=remote_track.isrc, year=remote_track.year,
+                title=remote_track.title,
+                artist=remote_track.artist,
+                album=remote_track.album,
+                duration_ms=remote_track.duration_ms,
+                isrc=remote_track.isrc,
+                year=remote_track.year,
                 disc_number=remote_track.disc_number,
-                track_number=remote_track.track_number, status="pending",
+                track_number=remote_track.track_number,
+                status="pending",
             )
             db.add(track)
             db.flush()  # assign track.id
-            db.add(PlaylistTrack(
-                playlist_id=playlist.id, track_id=track.id,
-                provider_track_id=remote_track.provider_track_id,
-                position=remote_track.position,
-                source_title=remote_track.title, source_artist=remote_track.artist,
-                source_album=remote_track.album,
-                source_duration_ms=remote_track.duration_ms, active=True,
-            ))
+            db.add(
+                PlaylistTrack(
+                    playlist_id=playlist.id,
+                    track_id=track.id,
+                    provider_track_id=remote_track.provider_track_id,
+                    position=remote_track.position,
+                    source_title=remote_track.title,
+                    source_artist=remote_track.artist,
+                    source_album=remote_track.album,
+                    source_duration_ms=remote_track.duration_ms,
+                    active=True,
+                )
+            )
             added += 1
 
-    removed = db.execute(
-        select(PlaylistTrack).where(
-            PlaylistTrack.playlist_id == playlist.id, PlaylistTrack.active.is_(True))
-    ).scalars().all()
+    removed = (
+        db.execute(
+            select(PlaylistTrack).where(
+                PlaylistTrack.playlist_id == playlist.id, PlaylistTrack.active.is_(True)
+            )
+        )
+        .scalars()
+        .all()
+    )
     n_removed = 0
     for m in removed:
         if m.provider_track_id not in seen_ids:
@@ -75,13 +94,19 @@ def scan_playlist(db: Session, playlist_id: int) -> dict:
 
     playlist.last_scan_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
-    return {"seen": len(seen_ids), "added": added, "removed": n_removed,
-            "name": playlist.name, "truncated": not remote.complete}
+    return {
+        "seen": len(seen_ids),
+        "added": added,
+        "removed": n_removed,
+        "name": playlist.name,
+        "truncated": not remote.complete,
+    }
 
 
 def run_scan_job(session_factory, playlist_id: int, job_id: int) -> None:
     """Background body of a manual scan (own session, thread-safe)."""
     import logging
+
     log = logging.getLogger("yakcheesemusic")
     db = session_factory()
     try:
@@ -103,8 +128,12 @@ def run_scan_job(session_factory, playlist_id: int, job_id: int) -> None:
             job.status = "success"
             job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
             db.commit()
-        log.info("job=%s action=scan status=success seen=%s added=%s",
-                 job_id, summary["seen"], summary["added"])
+        log.info(
+            "job=%s action=scan status=success seen=%s added=%s",
+            job_id,
+            summary["seen"],
+            summary["added"],
+        )
     except Exception:
         log.exception("job=%s action=scan status=error", job_id)
     finally:

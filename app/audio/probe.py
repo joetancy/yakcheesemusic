@@ -1,4 +1,5 @@
 """Post-download audio probing with mutagen (measured, not guessed)."""
+
 from __future__ import annotations
 
 import os
@@ -20,6 +21,7 @@ def check_playable(path: str) -> str | None:
         return f"unreadable: {e}"
     try:
         from mutagen import File as MFile
+
         audio = MFile(path)
     except Exception as e:
         return f"unparseable: {type(e).__name__}"
@@ -35,6 +37,7 @@ def check_playable(path: str) -> str | None:
 def probe_audio(path: str) -> dict:
     """Return {bitrate_kbps, sample_rate, bit_depth} from the actual file."""
     from mutagen import File as MFile
+
     out: dict = {}
     try:
         audio = MFile(path)

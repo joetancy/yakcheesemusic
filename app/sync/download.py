@@ -1,4 +1,5 @@
 """Blocking single-track download with candidate failover (shared worker)."""
+
 from __future__ import annotations
 
 import logging
@@ -11,16 +12,20 @@ def _downloader_for(provider: str | None):
     prov = (provider or "").lower()
     if prov == "qobuz":
         from app.downloaders.streamrip_qobuz import QobuzDownloader
+
         return QobuzDownloader()
     if prov == "deezer":
         from app.downloaders.streamrip_deezer import DeezerDownloader
+
         return DeezerDownloader()
     if prov == "musicdl":
         from app.downloaders.musicdl import MusicdlDownloader
+
         return MusicdlDownloader()
     if prov not in ("", "soulseek"):
         raise ValueError(f"Unsupported download provider: {prov}")
     from app.downloaders.slskd import SlskdDownloader
+
     return SlskdDownloader()
 
 
@@ -39,8 +44,8 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
     from app.db.database import SessionLocal
     from app.db.models import DownloadCandidate, Track
     from app.downloaders.base import SearchResult
-    from app.sync.library import library_path, place_file
     from app.config import get_settings
+
     db = SessionLocal()
     try:
         t = db.get(Track, track_id)
@@ -51,19 +56,29 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
             if not cand:
                 continue
             from app.db.settings_store import source_enabled
+
             source = {"soulseek": "slskd", "musicdl": "musicdl"}.get(cand.provider)
             if source and not source_enabled(db, source):
                 log.info("candidate %s skipped: %s disabled", candidate_id, source)
                 continue
-            result = SearchResult(provider=cand.provider,
-                                  provider_track_id=cand.provider_track_id,
-                                  title=cand.title, artist=cand.artist, album=cand.album,
-                                  duration_ms=cand.duration_ms, quality=cand.quality,
-                                  format=cand.format, size=cand.size)
+            result = SearchResult(
+                provider=cand.provider,
+                provider_track_id=cand.provider_track_id,
+                title=cand.title,
+                artist=cand.artist,
+                album=cand.album,
+                duration_ms=cand.duration_ms,
+                quality=cand.quality,
+                format=cand.format,
+                size=cand.size,
+            )
             try:
                 prov = (cand.provider or "").lower()
-                dest = f"/downloads/{prov}-{track_id}" \
-                    if prov in ("qobuz", "deezer", "musicdl") else "/downloads"
+                dest = (
+                    f"/downloads/{prov}-{track_id}"
+                    if prov in ("qobuz", "deezer", "musicdl")
+                    else "/downloads"
+                )
                 tmp = Path(_downloader_for(cand.provider).download(result, dest))
             except Exception as e:
                 log.warning("candidate %s failed (%s), trying next", candidate_id, e)
@@ -74,12 +89,19 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
             from app.sync.prune import prune_empty_parents
             from app.metadata.resolve import resolve_metadata
             from app.metadata.tags import read_tags
+
             music_dir = get_settings().music_dir
-            first = _place(tmp, _lp(music_dir, t.artist or cand.artist,
-                                    t.album or cand.album or "Unknown Album",
-                                    t.title or cand.title,
-                                    tmp.suffix or f".{cand.format or 'mp3'}",
-                                    t.track_number))
+            first = _place(
+                tmp,
+                _lp(
+                    music_dir,
+                    t.artist or cand.artist,
+                    t.album or cand.album or "Unknown Album",
+                    t.title or cand.title,
+                    tmp.suffix or f".{cand.format or 'mp3'}",
+                    t.track_number,
+                ),
+            )
             t.local_path = str(first)
             t.format = first.suffix.lstrip(".")
             t.download_provider = cand.provider or "soulseek"
@@ -88,17 +110,29 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
             # then move into Artist/Album when the album is actually known
             try:
                 meta = resolve_metadata(
-                    {"title": t.title or cand.title, "artist": t.artist or cand.artist,
-                     "album": t.album or cand.album, "year": t.year,
-                     "track_number": t.track_number},
-                    read_tags(str(first)), result.provider_track_id)
+                    {
+                        "title": t.title or cand.title,
+                        "artist": t.artist or cand.artist,
+                        "album": t.album or cand.album,
+                        "year": t.year,
+                        "track_number": t.track_number,
+                    },
+                    read_tags(str(first)),
+                    result.provider_track_id,
+                )
             except Exception as e:
                 log.warning("resolve failed for %s: %s", first, e)
                 meta = None
             final = first
             if meta and meta["album"] != "Unknown Album":
-                better = _lp(music_dir, meta["artist"], meta["album"],
-                             meta["title"], first.suffix, meta["track_number"])
+                better = _lp(
+                    music_dir,
+                    meta["artist"],
+                    meta["album"],
+                    meta["title"],
+                    first.suffix,
+                    meta["track_number"],
+                )
                 if os.path.realpath(better) != os.path.realpath(first):
                     final = _place(first, better)
                     prune_empty_parents(str(first), music_dir)
@@ -111,7 +145,10 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
             try:  # transcode stage: lossless -> 320k MP3 when preferred
                 from app.audio.convert import should_convert, convert_to_mp3
                 from app.db.settings_store import get_setting
-                if should_convert(final.suffix.lstrip("."), get_setting(db, "preferred_format")):
+
+                if should_convert(
+                    final.suffix.lstrip("."), get_setting(db, "preferred_format")
+                ):
                     final = Path(convert_to_mp3(str(final)))
                     t.local_path = str(final)
                     t.format = "mp3"
@@ -120,34 +157,49 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
                 log.warning("transcode failed for %s: %s", final, e)
             try:  # stamp playlist-derived tags on the FINAL file (post-transcode)
                 from app.metadata.tagging import write_tags
-                if not write_tags(str(final), {
-                        "title": t.title, "artist": t.artist,
-                        "albumartist": t.artist, "album": t.album,
-                        "tracknumber": t.track_number, "date": t.year,
-                        "isrc": t.isrc}):
+
+                if not write_tags(
+                    str(final),
+                    {
+                        "title": t.title,
+                        "artist": t.artist,
+                        "albumartist": t.artist,
+                        "album": t.album,
+                        "tracknumber": t.track_number,
+                        "date": t.year,
+                        "isrc": t.isrc,
+                    },
+                ):
                     log.warning("retag skipped for %s", final)
             except Exception as e:
                 log.warning("retag failed for %s: %s", final, e)
             from app.sync.library import make_readable as _readable
+
             _readable(str(final))
             try:  # probe the FINAL file (post-transcode)
                 from app.audio.probe import probe_audio
+
                 for k, v in probe_audio(str(final)).items():
                     setattr(t, {"bitrate_kbps": "bitrate"}.get(k, k), v)
             except Exception as e:
                 log.warning("probe failed for %s: %s", final, e)
             try:  # track gain at target LUFS on the FINAL file, tags only
                 from app.audio.replaygain import apply_one
+
                 if not apply_one(str(final), get_settings().replaygain_target_lufs):
                     log.warning("replaygain failed for %s", final)
             except Exception as e:
                 log.warning("replaygain error for %s: %s", final, e)
             from app.sync.library import replace_previous_file as _replace
+
             _replace(previous_path, str(final), music_dir)
             t.status = "completed"
-            for c in db.query(DownloadCandidate).filter(
-                    DownloadCandidate.track_id == track_id).all():
-                c.selected = (c.id == candidate_id)
+            for c in (
+                db.query(DownloadCandidate)
+                .filter(DownloadCandidate.track_id == track_id)
+                .all()
+            ):
+                c.selected = c.id == candidate_id
             db.commit()
             log.info("downloaded track=%s -> %s", track_id, final)
             return

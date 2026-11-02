@@ -1,9 +1,17 @@
 """SQLAlchemy models for yakcheesemusic. See PLAN.md section 5."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from sqlalchemy import (
-    String, Integer, Float, Boolean, DateTime, ForeignKey, Text, UniqueConstraint,
+    String,
+    Integer,
+    Float,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,8 +39,12 @@ class Playlist(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
 
-    memberships: Mapped[list["PlaylistTrack"]] = relationship(back_populates="playlist", cascade="all, delete-orphan")
-    jobs: Mapped[list["SyncJob"]] = relationship(back_populates="playlist", cascade="all, delete-orphan")
+    memberships: Mapped[list["PlaylistTrack"]] = relationship(
+        back_populates="playlist", cascade="all, delete-orphan"
+    )
+    jobs: Mapped[list["SyncJob"]] = relationship(
+        back_populates="playlist", cascade="all, delete-orphan"
+    )
 
 
 class Track(Base):
@@ -60,8 +72,12 @@ class Track(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
 
-    memberships: Mapped[list["PlaylistTrack"]] = relationship(back_populates="track", cascade="all, delete-orphan")
-    candidates: Mapped[list["DownloadCandidate"]] = relationship(back_populates="track", cascade="all, delete-orphan")
+    memberships: Mapped[list["PlaylistTrack"]] = relationship(
+        back_populates="track", cascade="all, delete-orphan"
+    )
+    candidates: Mapped[list["DownloadCandidate"]] = relationship(
+        back_populates="track", cascade="all, delete-orphan"
+    )
 
     @property
     def quality_label(self) -> str | None:
@@ -82,11 +98,19 @@ class Track(Base):
 
 class PlaylistTrack(Base):
     __tablename__ = "playlist_tracks"
-    __table_args__ = (UniqueConstraint("playlist_id", "provider_track_id", name="uq_playlist_provider_track"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "playlist_id", "provider_track_id", name="uq_playlist_provider_track"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    playlist_id: Mapped[int] = mapped_column(ForeignKey("playlists.id", ondelete="CASCADE"))
-    track_id: Mapped[int | None] = mapped_column(ForeignKey("tracks.id", ondelete="SET NULL"), nullable=True)
+    playlist_id: Mapped[int] = mapped_column(
+        ForeignKey("playlists.id", ondelete="CASCADE")
+    )
+    track_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tracks.id", ondelete="SET NULL"), nullable=True
+    )
     provider_track_id: Mapped[str] = mapped_column(String(255), default="")
     position: Mapped[int] = mapped_column(Integer, default=0)
     source_title: Mapped[str] = mapped_column(String(512), default="")
@@ -126,10 +150,14 @@ class DownloadCandidate(Base):
 class SyncJob(Base):
     __tablename__ = "sync_jobs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    playlist_id: Mapped[int | None] = mapped_column(ForeignKey("playlists.id", ondelete="SET NULL"), nullable=True)
+    playlist_id: Mapped[int | None] = mapped_column(
+        ForeignKey("playlists.id", ondelete="SET NULL"), nullable=True
+    )
     started_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    status: Mapped[str] = mapped_column(String(32), default="running")  # running|success|failed
+    status: Mapped[str] = mapped_column(
+        String(32), default="running"
+    )  # running|success|failed
     tracks_seen: Mapped[int] = mapped_column(Integer, default=0)
     tracks_added: Mapped[int] = mapped_column(Integer, default=0)
     tracks_removed: Mapped[int] = mapped_column(Integer, default=0)
@@ -143,6 +171,7 @@ class SyncJob(Base):
 
 class Setting(Base):
     """User-tunable settings (override env defaults, survive restarts)."""
+
     __tablename__ = "settings"
 
     key: Mapped[str] = mapped_column(String(64), primary_key=True)

@@ -4,11 +4,11 @@ A file is removed only when no other ACTIVE playlist membership references
 its track and no other track row points at the same path. Empty album/artist
 dirs under the music dir are pruned afterwards.
 """
+
 from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,17 +18,36 @@ from app.db.models import PlaylistTrack, Track
 log = logging.getLogger("yakcheesemusic")
 
 
-def track_in_use_elsewhere(db: Session, track_id: int, exclude_playlist_id: int) -> bool:
-    return db.execute(select(PlaylistTrack.id).where(
-        PlaylistTrack.track_id == track_id,
-        PlaylistTrack.playlist_id != exclude_playlist_id,
-        PlaylistTrack.active.is_(True)).limit(1)).scalars().first() is not None
+def track_in_use_elsewhere(
+    db: Session, track_id: int, exclude_playlist_id: int
+) -> bool:
+    return (
+        db.execute(
+            select(PlaylistTrack.id)
+            .where(
+                PlaylistTrack.track_id == track_id,
+                PlaylistTrack.playlist_id != exclude_playlist_id,
+                PlaylistTrack.active.is_(True),
+            )
+            .limit(1)
+        )
+        .scalars()
+        .first()
+        is not None
+    )
 
 
 def path_shared(db: Session, local_path: str, exclude_track_id: int) -> bool:
-    return db.execute(select(Track.id).where(
-        Track.local_path == local_path,
-        Track.id != exclude_track_id).limit(1)).scalars().first() is not None
+    return (
+        db.execute(
+            select(Track.id)
+            .where(Track.local_path == local_path, Track.id != exclude_track_id)
+            .limit(1)
+        )
+        .scalars()
+        .first()
+        is not None
+    )
 
 
 def prune_empty_parents(path: str, music_dir: str) -> None:
@@ -42,8 +61,9 @@ def prune_empty_parents(path: str, music_dir: str) -> None:
         d = os.path.dirname(d)
 
 
-def delete_track_file(db: Session, track: Track, playlist_id: int,
-                      music_dir: str) -> str | None:
+def delete_track_file(
+    db: Session, track: Track, playlist_id: int, music_dir: str
+) -> str | None:
     """Delete track's file if unused elsewhere. Returns deleted path or None."""
     if not track.local_path:
         return None

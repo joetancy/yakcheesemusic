@@ -1,4 +1,5 @@
 """SQLite-backed tunable settings. DB rows override env/config defaults."""
+
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
@@ -6,8 +7,14 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db.models import Setting
 
-KEYS = ("match_auto", "match_conditional", "match_review", "preferred_format",
-        "source_slskd_enabled", "source_musicdl_enabled")
+KEYS = (
+    "match_auto",
+    "match_conditional",
+    "match_review",
+    "preferred_format",
+    "source_slskd_enabled",
+    "source_musicdl_enabled",
+)
 
 
 def _config_default(key: str) -> str:
@@ -34,8 +41,11 @@ def source_enabled(db: Session, source: str) -> bool:
 
 def get_thresholds(db: Session) -> tuple[float, float, float]:
     """(auto, conditional, review) match thresholds."""
-    return (get_float(db, "match_auto"), get_float(db, "match_conditional"),
-            get_float(db, "match_review"))
+    return (
+        get_float(db, "match_auto"),
+        get_float(db, "match_conditional"),
+        get_float(db, "match_review"),
+    )
 
 
 def set_setting(db: Session, key: str, value: str) -> None:
@@ -78,7 +88,9 @@ def validate(key: str, value: str, current: dict) -> float | str:
     elif key == "match_review":
         review = v
     if not 0 <= review <= conditional <= auto <= 100:
-        raise ValueError("need 0 <= match_review <= match_conditional <= match_auto <= 100")
+        raise ValueError(
+            "need 0 <= match_review <= match_conditional <= match_auto <= 100"
+        )
     if not review < auto:
         raise ValueError("match_review must be below match_auto")
     return v

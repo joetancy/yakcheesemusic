@@ -2,9 +2,15 @@ from app.sync.batch import decide, pick_best, quality_rank
 
 
 def _cand(score, verdict, fmt="mp3"):
-    return {"score": score, "verdict": verdict, "format": fmt,
-            "provider": "soulseek",
-            "provider_track_id": f"{fmt}{score}", "title": "t", "artist": "a"}
+    return {
+        "score": score,
+        "verdict": verdict,
+        "format": fmt,
+        "provider": "soulseek",
+        "provider_track_id": f"{fmt}{score}",
+        "title": "t",
+        "artist": "a",
+    }
 
 
 def test_quality_rank():
@@ -44,6 +50,7 @@ def test_decide_low_score_review():
 
 def test_classify_custom_thresholds():
     from app.matching.scoring import classify_score
+
     assert classify_score(80) == "auto_if_no_competition"
     assert classify_score(80, auto=70) == "auto"
     assert classify_score(70, review=75) == "reject"
@@ -58,6 +65,7 @@ def test_decide_custom_thresholds():
 
 def test_settings_validation():
     from app.db.settings_store import validate
+
     cur = {"match_auto": "90", "match_conditional": "80", "match_review": "65"}
     assert validate("match_auto", "95", cur) == 95.0
     try:
@@ -100,14 +108,23 @@ def test_musicdl_sync_fallback_downloads_confident_match(tmp_path, monkeypatch):
         db.commit()
         tid = track.id
     monkeypatch.setattr(search, "search_candidates", lambda *args: [])
-    musicdl = {**_cand(99, "auto"), "provider": "musicdl", "provider_track_id": "QQMusicClient|1"}
+    musicdl = {
+        **_cand(99, "auto"),
+        "provider": "musicdl",
+        "provider_track_id": "QQMusicClient|1",
+    }
     monkeypatch.setattr(search, "search_musicdl_candidates", lambda *args: [musicdl])
     outcome, returned_id, candidate_ids = search_one(factory, tid)
     assert outcome == "download" and returned_id == tid and len(candidate_ids) == 1
     with factory() as db:
         assert db.get(Track, tid).status == "downloading"
         assert db.get(Track, tid).download_provider == "musicdl"
-        assert db.query(DownloadCandidate).filter_by(track_id=tid, provider="musicdl").count() == 1
+        assert (
+            db.query(DownloadCandidate)
+            .filter_by(track_id=tid, provider="musicdl")
+            .count()
+            == 1
+        )
 
 
 def test_musicdl_sync_uncertain_match_goes_to_review(tmp_path, monkeypatch):
@@ -127,7 +144,11 @@ def test_musicdl_sync_uncertain_match_goes_to_review(tmp_path, monkeypatch):
         db.commit()
         tid = track.id
     monkeypatch.setattr(search, "search_candidates", lambda *args: [])
-    candidate = {**_cand(70, "needs_review"), "provider": "musicdl", "provider_track_id": "QQMusicClient|1"}
+    candidate = {
+        **_cand(70, "needs_review"),
+        "provider": "musicdl",
+        "provider_track_id": "QQMusicClient|1",
+    }
     monkeypatch.setattr(search, "search_musicdl_candidates", lambda *args: [candidate])
     assert search_one(factory, tid) == ("review", tid, [])
 
@@ -151,8 +172,10 @@ def test_musicdl_sync_respects_disabled_source(tmp_path, monkeypatch):
         tid = track.id
         set_setting(db, "source_slskd_enabled", "False")
         set_setting(db, "source_musicdl_enabled", "False")
+
     def unexpected(*args):
         raise AssertionError("disabled source was searched")
+
     monkeypatch.setattr(search, "search_candidates", unexpected)
     monkeypatch.setattr(search, "search_musicdl_candidates", unexpected)
     assert search_one(factory, tid) == ("review", tid, [])
@@ -189,6 +212,7 @@ def test_rejections_survive_research():
     mapping = save_candidates(db, t.id, ranked)
     # user rejects the mp3
     from app.db.models import DownloadCandidate
+
     db.get(DownloadCandidate, mapping["mp390"]).rejected_reason = "rejected by user"
     db.commit()
     assert rejected_keys(db, t.id) == {"mp390"}
@@ -206,12 +230,12 @@ def test_search_one_parallel(tmp_path):
     import app.sync.search as search_mod
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-    from sqlalchemy.pool import StaticPool
     from app.db.database import Base
     from app.db.models import Track
 
-    engine = create_engine(f"sqlite:///{tmp_path}/t.db",
-                           connect_args={"check_same_thread": False})
+    engine = create_engine(
+        f"sqlite:///{tmp_path}/t.db", connect_args={"check_same_thread": False}
+    )
     Base.metadata.create_all(bind=engine)
     factory = sessionmaker(bind=engine, future=True)
     db = factory()
@@ -226,16 +250,33 @@ def test_search_one_parallel(tmp_path):
 
     def fake_search(track, auto=90.0, conditional=80.0, review=65.0):
         from app.matching.matcher import match_candidates
-        src = {"title": track.title, "artist": "A", "album": "",
-               "duration_ms": 200000, "isrc": None}
-        cands = [{"provider": "soulseek", "provider_track_id": f"u/f{i}.flac",
-                  "title": track.title, "artist": "A", "album": "",
-                  "duration_ms": 200000, "quality": "FLAC",
-                  "format": "flac", "size": 1, "source_url": None}
-                 for i in range(2)]
+
+        src = {
+            "title": track.title,
+            "artist": "A",
+            "album": "",
+            "duration_ms": 200000,
+            "isrc": None,
+        }
+        cands = [
+            {
+                "provider": "soulseek",
+                "provider_track_id": f"u/f{i}.flac",
+                "title": track.title,
+                "artist": "A",
+                "album": "",
+                "duration_ms": 200000,
+                "quality": "FLAC",
+                "format": "flac",
+                "size": 1,
+                "source_url": None,
+            }
+            for i in range(2)
+        ]
         return match_candidates(src, cands, auto, conditional, review)
 
     import threading
+
     barrier = threading.Barrier(6)
 
     orig = search_mod.search_candidates
@@ -247,6 +288,7 @@ def test_search_one_parallel(tmp_path):
     search_mod.search_candidates = gated
     try:
         from concurrent.futures import ThreadPoolExecutor
+
         with ThreadPoolExecutor(max_workers=6) as ex:
             results = list(ex.map(lambda tid: batch_mod.search_one(factory, tid), ids))
     finally:
@@ -279,8 +321,15 @@ def test_save_mapping_covers_tied_pick():
     mapping = save_candidates(db, t.id, ranked)
     assert len(mapping) == 12
     # full (unlimited) re-query, as batch.py does — every pick resolves
-    id_by_key = {c.provider_track_id: c.id for c in db.execute(
-        select(DownloadCandidate).where(DownloadCandidate.track_id == t.id)
-        .order_by(DownloadCandidate.score.desc())).scalars().all()}
+    id_by_key = {
+        c.provider_track_id: c.id
+        for c in db.execute(
+            select(DownloadCandidate)
+            .where(DownloadCandidate.track_id == t.id)
+            .order_by(DownloadCandidate.score.desc())
+        )
+        .scalars()
+        .all()
+    }
     for c in ranked:
         assert id_by_key[c["provider_track_id"]] == mapping[c["provider_track_id"]]

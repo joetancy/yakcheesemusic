@@ -1,4 +1,5 @@
 """Downloader abstraction (Phase 3 stub)."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

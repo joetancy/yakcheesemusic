@@ -5,6 +5,7 @@ Authority follows app.metadata.resolve: playlist-derived identity
 Junk values are never written. Existing frames outside our key set
 (e.g. ReplayGain tags) are preserved.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,6 +21,7 @@ def _clean(value) -> str | None:
     if value is None:
         return None
     from app.metadata.resolve import is_junk
+
     s = str(value).strip()
     if not s or is_junk(s):
         return None
@@ -38,6 +40,7 @@ def _year_str(value) -> str | None:
     if value is None:
         return None
     import re
+
     m = re.search(r"(19|20)\d{2}", str(value))
     return m.group(0) if m else None
 
@@ -59,8 +62,15 @@ def _norm(tags: dict) -> dict:
 
 def _set_id3_frames(audio, meta) -> None:
     from mutagen.id3 import TIT2, TPE1, TPE2, TALB, TRCK, TDRC, TCON, TSRC
-    frames = {"title": TIT2, "artist": TPE1, "albumartist": TPE2,
-              "album": TALB, "genre": TCON, "isrc": TSRC}
+
+    frames = {
+        "title": TIT2,
+        "artist": TPE1,
+        "albumartist": TPE2,
+        "album": TALB,
+        "genre": TCON,
+        "isrc": TSRC,
+    }
     enc = 3  # UTF-8
     for key, frame in frames.items():
         if meta.get(key) is not None:
@@ -73,6 +83,7 @@ def _set_id3_frames(audio, meta) -> None:
 
 def _write_id3(path: str, meta: dict) -> bool:
     from mutagen.id3 import ID3
+
     try:
         audio = ID3(path)
     except Exception:
@@ -87,6 +98,7 @@ def _write_id3(path: str, meta: dict) -> bool:
 
 def _write_wave(path: str, meta: dict) -> bool:
     from mutagen import File as MFile
+
     try:
         audio = MFile(path)
         if audio is None or not hasattr(audio, "add_tags"):
@@ -106,15 +118,23 @@ def _write_wave(path: str, meta: dict) -> bool:
 
 def _write_vorbis(path: str, meta: dict) -> bool:
     from mutagen import File as MFile
+
     try:
         audio = MFile(path)
     except Exception:
         return False
     if audio is None or not hasattr(audio, "__setitem__"):
         return False
-    keys = {"title": "TITLE", "artist": "ARTIST", "albumartist": "ALBUMARTIST",
-            "album": "ALBUM", "tracknumber": "TRACKNUMBER",
-            "date": "DATE", "genre": "GENRE", "isrc": "ISRC"}
+    keys = {
+        "title": "TITLE",
+        "artist": "ARTIST",
+        "albumartist": "ALBUMARTIST",
+        "album": "ALBUM",
+        "tracknumber": "TRACKNUMBER",
+        "date": "DATE",
+        "genre": "GENRE",
+        "isrc": "ISRC",
+    }
     try:
         for key, vkey in keys.items():
             if meta.get(key) is not None:
@@ -127,12 +147,19 @@ def _write_vorbis(path: str, meta: dict) -> bool:
 
 def _write_mp4(path: str, meta: dict) -> bool:
     from mutagen.mp4 import MP4
+
     try:
         audio = MP4(path)
     except Exception:
         return False
-    keys = {"title": "\xa9nam", "artist": "\xa9ART", "albumartist": "aART",
-            "album": "\xa9alb", "date": "\xa9day", "genre": "\xa9gen"}
+    keys = {
+        "title": "\xa9nam",
+        "artist": "\xa9ART",
+        "albumartist": "aART",
+        "album": "\xa9alb",
+        "date": "\xa9day",
+        "genre": "\xa9gen",
+    }
     try:
         for key, mkey in keys.items():
             if meta.get(key) is not None:
@@ -175,10 +202,13 @@ def run_library_retag(session_factory, job_id: int) -> None:
     from datetime import datetime, timezone
     from sqlalchemy import select
     from app.db.models import SyncJob, Track
+
     db = session_factory()
     try:
         job = db.get(SyncJob, job_id)
-        rows = db.execute(select(Track).where(Track.status == "completed")).scalars().all()
+        rows = (
+            db.execute(select(Track).where(Track.status == "completed")).scalars().all()
+        )
         targets = [(t.id, t.local_path) for t in rows if t.local_path]
         log.info("job=%s action=retag status=start files=%s", job_id, len(targets))
         if job:
@@ -191,11 +221,18 @@ def run_library_retag(session_factory, job_id: int) -> None:
                 failed.append(path or str(tid))
                 continue
             try:
-                done = write_tags(path, {
-                    "title": t.title, "artist": t.artist,
-                    "albumartist": t.artist, "album": t.album,
-                    "tracknumber": t.track_number, "date": t.year,
-                    "isrc": t.isrc})
+                done = write_tags(
+                    path,
+                    {
+                        "title": t.title,
+                        "artist": t.artist,
+                        "albumartist": t.artist,
+                        "album": t.album,
+                        "tracknumber": t.track_number,
+                        "date": t.year,
+                        "isrc": t.isrc,
+                    },
+                )
             except Exception as e:
                 log.warning("job=%s retag error %s: %s", job_id, path, e)
                 done = False
@@ -211,14 +248,16 @@ def run_library_retag(session_factory, job_id: int) -> None:
             job.status = "success" if not failed else "failed"
             job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
             db.commit()
-        log.info("job=%s action=retag status=done ok=%s failed=%s",
-                 job_id, ok, len(failed))
+        log.info(
+            "job=%s action=retag status=done ok=%s failed=%s", job_id, ok, len(failed)
+        )
     except Exception as e:
         log.exception("job=%s action=retag status=error", job_id)
         try:
             job = db.get(SyncJob, job_id)
             if job:
                 from datetime import datetime, timezone
+
                 job.status = "failed"
                 job.error = str(e)[:1000]
                 job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)

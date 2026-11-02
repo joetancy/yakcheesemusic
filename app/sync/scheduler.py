@@ -5,6 +5,7 @@ Schedule spec lives on Playlist.sync_interval:
   "off"/"disabled"/"manual" for manual-only. Unknown specs are skipped
   with a warning, never crash the sweeper.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,9 +29,15 @@ def start_scheduler() -> None:
         scheduler.remove_job("due_syncs")
     except Exception:
         pass
-    scheduler.add_job(check_due_syncs, "interval", minutes=5, id="due_syncs",
-                      next_run_time=datetime.now(UTC) + timedelta(minutes=1),
-                      max_instances=1, coalesce=True)
+    scheduler.add_job(
+        check_due_syncs,
+        "interval",
+        minutes=5,
+        id="due_syncs",
+        next_run_time=datetime.now(UTC) + timedelta(minutes=1),
+        max_instances=1,
+        coalesce=True,
+    )
 
 
 def shutdown_scheduler() -> None:
@@ -39,7 +46,7 @@ def shutdown_scheduler() -> None:
 
 
 def parse_interval(spec: str | None) -> tuple | None:
-    """"daily_0330" -> ("daily", 3, 30); "hourly" -> ("hourly",);
+    """ "daily_0330" -> ("daily", 3, 30); "hourly" -> ("hourly",);
     "off"/"disabled"/"manual"/"" -> ("off",). None on garbage."""
     s = (spec or "").strip().lower()
     if s in ("", "off", "disabled", "manual", "never"):
@@ -47,6 +54,7 @@ def parse_interval(spec: str | None) -> tuple | None:
     if s == "hourly":
         return ("hourly",)
     import re
+
     m = re.fullmatch(r"daily_(\d{2})(\d{2})", s)
     if m:
         hh, mm = int(m.group(1)), int(m.group(2))
@@ -55,7 +63,9 @@ def parse_interval(spec: str | None) -> tuple | None:
     return None
 
 
-def next_occurrence(spec: str | None, now_utc: datetime | None = None) -> datetime | None:
+def next_occurrence(
+    spec: str | None, now_utc: datetime | None = None
+) -> datetime | None:
     """Next run after now, naive UTC (matches codebase timestamps). None if off."""
     parsed = parse_interval(spec)
     if not parsed or parsed[0] == "off":
@@ -85,8 +95,15 @@ def check_due_syncs(session_factory=None) -> list[int]:
     launched = []
     db = session_factory()
     try:
-        playlists = db.execute(select(Playlist).where(
-            Playlist.enabled.is_(True), Playlist.sync_enabled.is_(True))).scalars().all()
+        playlists = (
+            db.execute(
+                select(Playlist).where(
+                    Playlist.enabled.is_(True), Playlist.sync_enabled.is_(True)
+                )
+            )
+            .scalars()
+            .all()
+        )
         for p in playlists:
             nxt = next_occurrence(p.sync_interval, now.replace(tzinfo=UTC))
             if nxt is None:
@@ -98,12 +115,23 @@ def check_due_syncs(session_factory=None) -> list[int]:
                 continue
             if p.next_sync_at > now:
                 continue
-            running = db.execute(select(SyncJob).where(
-                SyncJob.playlist_id == p.id, SyncJob.status == "running",
-                SyncJob.finished_at.is_(None))).scalars().first()
+            running = (
+                db.execute(
+                    select(SyncJob).where(
+                        SyncJob.playlist_id == p.id,
+                        SyncJob.status == "running",
+                        SyncJob.finished_at.is_(None),
+                    )
+                )
+                .scalars()
+                .first()
+            )
             if running:
-                log.info("playlist=%s action=schedule status=skip running job=%s",
-                         p.id, running.id)
+                log.info(
+                    "playlist=%s action=schedule status=skip running job=%s",
+                    p.id,
+                    running.id,
+                )
                 p.next_sync_at = nxt  # don't pile up missed runs
                 db.commit()
                 continue
@@ -113,8 +141,11 @@ def check_due_syncs(session_factory=None) -> list[int]:
             db.refresh(job)
             p.next_sync_at = nxt
             db.commit()
-            threading.Thread(target=run_playlist_sync,
-                             args=(session_factory, p.id, job.id), daemon=True).start()
+            threading.Thread(
+                target=run_playlist_sync,
+                args=(session_factory, p.id, job.id),
+                daemon=True,
+            ).start()
             log.info("playlist=%s action=schedule status=launched job=%s", p.id, job.id)
             launched.append(p.id)
     except Exception:

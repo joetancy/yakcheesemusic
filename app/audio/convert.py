@@ -4,6 +4,7 @@ Metadata + embedded art ride along (-map 0). Source is removed only after
 the MP3 verifies (probed duration > 0). ReplayGain must run AFTER this
 stage, on the final file.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,9 +22,26 @@ def should_convert(fmt: str | None, preferred: str) -> bool:
 
 
 def build_command(src: str, dest: str) -> list[str]:
-    return ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", src,
-            "-map", "0", "-c:a", "libmp3lame", "-b:a", "320k",
-            "-c:v", "copy", "-id3v2_version", "3", dest]
+    return [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        src,
+        "-map",
+        "0",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "320k",
+        "-c:v",
+        "copy",
+        "-id3v2_version",
+        "3",
+        dest,
+    ]
 
 
 def convert_to_mp3(src: str, timeout_s: int = 900) -> str:
@@ -33,8 +51,9 @@ def convert_to_mp3(src: str, timeout_s: int = 900) -> str:
         return dest
     fd, tmp = tempfile.mkstemp(suffix=".mp3", dir=os.path.dirname(src))
     os.close(fd)
-    r = subprocess.run(build_command(src, tmp), capture_output=True, text=True,
-                       timeout=timeout_s)
+    r = subprocess.run(
+        build_command(src, tmp), capture_output=True, text=True, timeout=timeout_s
+    )
     if r.returncode != 0:
         try:
             os.remove(tmp)
@@ -42,8 +61,10 @@ def convert_to_mp3(src: str, timeout_s: int = 900) -> str:
             pass
         raise RuntimeError(f"ffmpeg failed: {(r.stderr or '')[-300:]}")
     from app.audio.probe import probe_audio  # noqa
+
     try:
         from mutagen import File as MFile
+
         audio = MFile(tmp)
         dur = getattr(getattr(audio, "info", None), "length", 0) or 0
     except Exception:
@@ -63,6 +84,7 @@ def convert_to_mp3(src: str, timeout_s: int = 900) -> str:
     os.replace(tmp, dest)
     os.remove(src)
     from app.sync.library import make_readable
+
     make_readable(dest)  # mkstemp creates 0600; players need read access
     return dest
 
@@ -81,11 +103,18 @@ def run_library_convert(session_factory, job_id: int) -> None:
     db = session_factory()
     try:
         from app.db.models import SyncJob
+
         job = db.get(SyncJob, job_id)
-        rows = db.execute(select(Track).where(Track.status == "completed")).scalars().all()
-        targets = [t.id for t in rows
-                   if t.local_path and (t.format or "").lower() in LOSSLESS
-                   and os.path.exists(t.local_path)]
+        rows = (
+            db.execute(select(Track).where(Track.status == "completed")).scalars().all()
+        )
+        targets = [
+            t.id
+            for t in rows
+            if t.local_path
+            and (t.format or "").lower() in LOSSLESS
+            and os.path.exists(t.local_path)
+        ]
         log.info("job=%s action=convert status=start files=%s", job_id, len(targets))
         if job:
             job.tracks_seen = len(targets)
@@ -109,6 +138,7 @@ def run_library_convert(session_factory, job_id: int) -> None:
         if job:
             try:
                 from app.sync.m3u import generate_m3u
+
                 plist_dir = s.playlist_dir or os.path.join(s.music_dir, "_Playlists")
                 for p in db.execute(select(Playlist)).scalars().all():
                     generate_m3u(db, p.id, s.music_dir, plist_dir)
@@ -121,7 +151,9 @@ def run_library_convert(session_factory, job_id: int) -> None:
             job.status = "success" if not failed else "failed"
             job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
             db.commit()
-        log.info("job=%s action=convert status=done ok=%s failed=%s", job_id, ok, len(failed))
+        log.info(
+            "job=%s action=convert status=done ok=%s failed=%s", job_id, ok, len(failed)
+        )
     except Exception:
         log.exception("job=%s action=convert status=error", job_id)
     finally:

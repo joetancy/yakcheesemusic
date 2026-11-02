@@ -10,10 +10,24 @@ from app.sync.download import _downloader_for
 def test_musicdl_search_maps_results(monkeypatch):
     def run(args, **kwargs):
         assert json.loads(kwargs["input"])["query"] == "淘汰 陳奕迅"
-        return subprocess.CompletedProcess(args, 0, json.dumps({"results": [{
-            "provider_track_id": "NeteaseMusicClient|65528", "title": "淘汰",
-            "artist": "陈奕迅", "album": "", "format": "flac",
-        }]}), "")
+        return subprocess.CompletedProcess(
+            args,
+            0,
+            json.dumps(
+                {
+                    "results": [
+                        {
+                            "provider_track_id": "NeteaseMusicClient|65528",
+                            "title": "淘汰",
+                            "artist": "陈奕迅",
+                            "album": "",
+                            "format": "flac",
+                        }
+                    ]
+                }
+            ),
+            "",
+        )
 
     monkeypatch.setattr(subprocess, "run", run)
     result = MusicdlDownloader().search("淘汰", "陳奕迅")[0]

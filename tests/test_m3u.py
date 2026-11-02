@@ -21,19 +21,48 @@ def _seed(db, tmpdir):
     f1 = os.path.join(tmpdir, "A", "song1.flac")
     os.makedirs(os.path.dirname(f1))
     open(f1, "w").write("x")
-    t1 = Track(title="Song1", artist="A", duration_ms=200000,
-               local_path=f1, format="flac", status="completed")
+    t1 = Track(
+        title="Song1",
+        artist="A",
+        duration_ms=200000,
+        local_path=f1,
+        format="flac",
+        status="completed",
+    )
     t2 = Track(title="Song2", artist="B", status="pending")
     db.add_all([t1, t2])
     db.flush()
-    db.add_all([
-        PlaylistTrack(playlist_id=p.id, track_id=t1.id, provider_track_id="v1",
-                      position=1, source_title="Song1", source_artist="A", active=True),
-        PlaylistTrack(playlist_id=p.id, track_id=t2.id, provider_track_id="v2",
-                      position=0, source_title="Song2", source_artist="B", active=True),
-        PlaylistTrack(playlist_id=p.id, track_id=None, provider_track_id="v3",
-                      position=2, source_title="Gone", source_artist="C", active=False),
-    ])
+    db.add_all(
+        [
+            PlaylistTrack(
+                playlist_id=p.id,
+                track_id=t1.id,
+                provider_track_id="v1",
+                position=1,
+                source_title="Song1",
+                source_artist="A",
+                active=True,
+            ),
+            PlaylistTrack(
+                playlist_id=p.id,
+                track_id=t2.id,
+                provider_track_id="v2",
+                position=0,
+                source_title="Song2",
+                source_artist="B",
+                active=True,
+            ),
+            PlaylistTrack(
+                playlist_id=p.id,
+                track_id=None,
+                provider_track_id="v3",
+                position=2,
+                source_title="Gone",
+                source_artist="C",
+                active=False,
+            ),
+        ]
+    )
     db.commit()
     return p
 
@@ -44,8 +73,11 @@ def test_generate_m3u(tmp_path):
     plist = os.path.join(music, "_Playlists")
     p = _seed(db, music)
     res = generate_m3u(db, p.id, music, plist)
-    assert res == {"path": os.path.join(plist, "Korean.m3u"),
-                   "included": 1, "missing": 1}
+    assert res == {
+        "path": os.path.join(plist, "Korean.m3u"),
+        "included": 1,
+        "missing": 1,
+    }
     text = open(res["path"]).read()
     assert text.startswith("#EXTM3U\n#PLAYLIST:Korean\n")
     assert "#EXTINF:200,A - Song1" in text

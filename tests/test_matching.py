@@ -1,5 +1,12 @@
-from app.matching.normalization import normalize_text, detect_variants, has_variant_mismatch
-from app.matching.scoring import similarity, duration_score, score_candidate, classify_score
+from app.matching.normalization import (
+    normalize_text,
+    detect_variants,
+    has_variant_mismatch,
+)
+from app.matching.scoring import (
+    duration_score,
+    score_candidate,
+)
 from app.matching.matcher import match_candidates
 
 
@@ -21,15 +28,45 @@ def test_duration_score():
 
 
 def test_score_prefers_exact():
-    src = {"title": "Love Wins All", "artist": "IU", "album": "The Winning", "duration_ms": 210000, "isrc": None}
-    good = {"title": "Love Wins All", "artist": "IU", "album": "The Winning", "duration_ms": 210500, "isrc": None}
-    bad = {"title": "Love Wins All (Live)", "artist": "IU Tribute", "album": "Karaoke", "duration_ms": 230000, "isrc": None}
+    src = {
+        "title": "Love Wins All",
+        "artist": "IU",
+        "album": "The Winning",
+        "duration_ms": 210000,
+        "isrc": None,
+    }
+    good = {
+        "title": "Love Wins All",
+        "artist": "IU",
+        "album": "The Winning",
+        "duration_ms": 210500,
+        "isrc": None,
+    }
+    bad = {
+        "title": "Love Wins All (Live)",
+        "artist": "IU Tribute",
+        "album": "Karaoke",
+        "duration_ms": 230000,
+        "isrc": None,
+    }
     ranked = match_candidates(src, [bad, good])
     assert ranked[0]["title"] == "Love Wins All"
     assert ranked[0]["verdict"] in ("auto", "auto_if_no_competition")
 
 
 def test_isrc_bonus():
-    src = {"title": "a", "artist": "b", "album": "c", "duration_ms": 200000, "isrc": "USRC12345678"}
-    cand = {"title": "a", "artist": "b", "album": "c", "duration_ms": 200000, "isrc": "usrc12345678"}
+    src = {
+        "title": "a",
+        "artist": "b",
+        "album": "c",
+        "duration_ms": 200000,
+        "isrc": "USRC12345678",
+    }
+    cand = {
+        "title": "a",
+        "artist": "b",
+        "album": "c",
+        "duration_ms": 200000,
+        "isrc": "usrc12345678",
+    }
     assert score_candidate(src, cand) > 90

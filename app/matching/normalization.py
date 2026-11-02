@@ -1,12 +1,23 @@
 """Text normalization for matching (Phase 4)."""
+
 from __future__ import annotations
 
 import re
 import unicodedata
 
 _VARIANT_TERMS = [
-    "live", "remix", "karaoke", "instrumental", "sped up", "slowed",
-    "nightcore", "acoustic", "cover", "demo", "radio edit", "extended mix",
+    "live",
+    "remix",
+    "karaoke",
+    "instrumental",
+    "sped up",
+    "slowed",
+    "nightcore",
+    "acoustic",
+    "cover",
+    "demo",
+    "radio edit",
+    "extended mix",
 ]
 
 
