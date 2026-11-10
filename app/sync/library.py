@@ -25,11 +25,28 @@ def library_path(
 ) -> Path:
     artist_d = sanitize(artist, "Unknown Artist")
     album_d = sanitize(album, "Unknown Album")
+    # Linux filesystems distinguish case, but music players treat these as the
+    # same artist/album. Reuse the spelling of an existing directory so new
+    # downloads join it instead of creating e.g. "Album" and "album".
+    root = Path(music_dir)
+    artist_d = _existing_directory_name(root, artist_d)
+    album_d = _existing_directory_name(root / artist_d, album_d)
     base = sanitize(title, "Unknown Title")
     if track_number:
         base = f"{track_number:02d} - {base}"
     ext = ext if ext.startswith(".") else f".{ext}"
-    return Path(music_dir) / artist_d / album_d / (base + ext)
+    return root / artist_d / album_d / (base + ext)
+
+
+def _existing_directory_name(parent: Path, name: str) -> str:
+    """Return an existing child directory name matched without case."""
+    try:
+        for child in parent.iterdir():
+            if child.is_dir() and child.name.casefold() == name.casefold():
+                return child.name
+    except OSError:
+        pass
+    return name
 
 
 def place_file(src: Path, dest: Path) -> Path:
