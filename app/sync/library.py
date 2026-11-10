@@ -29,8 +29,7 @@ def library_path(
     # same artist/album. Reuse the spelling of an existing directory so new
     # downloads join it instead of creating e.g. "Album" and "album".
     root = Path(music_dir)
-    artist_d = _existing_directory_name(root, artist_d)
-    album_d = _existing_directory_name(root / artist_d, album_d)
+    artist_d, album_d = consolidate_album_folders(root, artist_d, album_d)
     base = sanitize(title, "Unknown Title")
     if track_number:
         base = f"{track_number:02d} - {base}"
@@ -38,15 +37,53 @@ def library_path(
     return root / artist_d / album_d / (base + ext)
 
 
-def _existing_directory_name(parent: Path, name: str) -> str:
-    """Return an existing child directory name matched without case."""
+def _matching_directories(parent: Path, name: str) -> list[Path]:
     try:
-        for child in parent.iterdir():
-            if child.is_dir() and child.name.casefold() == name.casefold():
-                return child.name
+        return sorted(
+            (p for p in parent.iterdir() if p.is_dir() and p.name.casefold() == name.casefold()),
+            key=lambda p: (p.name.casefold(), p.name),
+        )
     except OSError:
-        pass
-    return name
+        return []
+
+
+def _merge_directory_contents(source: Path, destination: Path) -> None:
+    """Merge a duplicate folder recursively without overwriting any files."""
+    destination.mkdir(parents=True, exist_ok=True)
+    for child in list(source.iterdir()):
+        target = next(
+            (p for p in destination.iterdir() if p.is_dir() and p.name.casefold() == child.name.casefold()),
+            None,
+        ) if child.is_dir() else None
+        if child.is_dir():
+            if target is None:
+                target = destination / child.name
+                shutil.move(str(child), str(target))
+            else:
+                _merge_directory_contents(child, target)
+                child.rmdir()
+        else:
+            place_file(child, destination / child.name)
+    source.rmdir()
+
+
+def consolidate_album_folders(root: Path, artist: str, album: str) -> tuple[str, str]:
+    """Merge case-only artist and album duplicates and return their chosen names."""
+    artist_matches = _matching_directories(root, artist)
+    if artist_matches:
+        artist_dir = next((p for p in artist_matches if p.name == artist), artist_matches[0])
+        for duplicate in artist_matches:
+            if duplicate != artist_dir:
+                _merge_directory_contents(duplicate, artist_dir)
+        album_matches = _matching_directories(artist_dir, album)
+        if album_matches:
+            album_dir = next((p for p in album_matches if p.name == album), album_matches[0])
+            for duplicate in album_matches:
+                if duplicate != album_dir:
+                    _merge_directory_contents(duplicate, album_dir)
+            return artist_dir.name, album_dir.name
+        return artist_dir.name, album
+    return artist, album
 
 
 def place_file(src: Path, dest: Path) -> Path:
