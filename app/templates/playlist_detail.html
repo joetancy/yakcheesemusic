@@ -30,7 +30,7 @@
 <td data-label="File">{% if m.track and m.track.local_path %}<span title="{{ m.track.local_path }}">{{ m.track.local_path }}</span>{% else %}—{% endif %}</td>
 <td data-label="Type">{{ m.track.format.upper() if m.track and m.track.format else "—" }}</td>
 <td data-label="Quality">{{ m.track.quality_label if m.track and m.track.quality_label else "—" }}</td>
-<td data-label="Actions"><div class="action-buttons">{% if m.track %}{% if source_slskd_enabled %}<button class="btn" data-variant="outline" onclick="research({{ m.track.id }}, this, 'slskd')">Search Soulseek</button>{% endif %}{% if source_musicdl_enabled %}<button class="btn" data-variant="outline" onclick="research({{ m.track.id }}, this, 'musicdl')">Search Musicdl</button>{% endif %}<a class="btn" data-variant="outline" href="/review/{{ m.track.id }}">Review track</a>{% if m.active and m.track.local_path %}<button class="btn" data-variant="destructive" aria-label="Delete downloaded file" onclick="deleteTrackFile({{ playlist.id }}, {{ m.track.id }}, this)">Delete file</button>{% endif %}{% endif %}</div></td>
+<td data-label="Actions"><div class="action-buttons">{% if m.track %}{% if source_slskd_enabled %}<button class="btn" data-variant="outline" onclick="research({{ m.track.id }}, this, 'slskd')">Search Soulseek</button>{% endif %}{% if source_musicdl_enabled %}<button class="btn" data-variant="outline" onclick="research({{ m.track.id }}, this, 'musicdl')">Search Musicdl</button>{% endif %}{% if source_youtube_enabled %}<button class="btn" data-variant="outline" onclick="research({{ m.track.id }}, this, 'youtube')">Search YouTube</button>{% endif %}<a class="btn" data-variant="outline" href="/review/{{ m.track.id }}">Review track</a>{% if m.active and m.track.local_path %}<button class="btn" data-variant="destructive" aria-label="Delete downloaded file" onclick="deleteTrackFile({{ playlist.id }}, {{ m.track.id }}, this)">Delete file</button>{% endif %}{% endif %}</div></td>
 </tr>{% else %}<tr class="empty-row"><td colspan="10">{% if search_query %}No tracks match “{{ search_query }}”.{% else %}No tracks yet — hit Scan now.{% endif %}</td></tr>{% endfor %}
 </tbody></table></div>
 {% if page_count > 1 %}<nav class="track-pagination" role="navigation" aria-label="Playlist track pages">
@@ -44,7 +44,7 @@ async function research(id, btn, source){
   setBusy(btn,true,'Searching…');
   const el=document.getElementById('scan-result');setFeedback(el,'Starting search…','loading');
   try{
-    const endpoint=source==='musicdl'?'search-musicdl':'search';
+    const endpoint=source==='youtube'?'search-youtube':(source==='musicdl'?'search-musicdl':'search');
     await readResponse(await fetch('/api/tracks/'+id+'/'+endpoint, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({manual_review:true})}));
     setFeedback(el,'Searching… results will be sent to the review queue.','loading');
     await pollTrack(id, el);

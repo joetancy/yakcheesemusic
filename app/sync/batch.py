@@ -253,10 +253,12 @@ def run_playlist_sync(session_factory, playlist_id: int, job_id: int) -> None:
                 from app.sync.qobuz_fallback import (
                     run_deezer_fallback,
                     run_qobuz_fallback,
+                    run_youtube_fallback,
                 )
 
                 run_qobuz_fallback(session_factory, job_id, playlist_id)
                 run_deezer_fallback(session_factory, job_id, playlist_id)
+                run_youtube_fallback(session_factory, job_id, playlist_id)
             except Exception as e:
                 log.warning("job=%s streaming fallback failed: %s", job_id, e)
             job.status = "success"

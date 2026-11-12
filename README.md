@@ -30,7 +30,7 @@ Volumes:
 | `QOBUZ_QUALITY` | app | 1=320 MP3, 2=CD 16/44.1 (default), 3=24/≤96kHz, 4=24/≤192kHz |
 | `DEEZER_ARL` / `DEEZER_QUALITY` | app (StreamRip 2nd fallback) | premium Deezer arl cookie; tried after Qobuz; blank disables |
 
-QQ Music and NetEase search is available through musicdl during sync when Soulseek has no usable results, and manually on each track’s review page. Sync can automatically download confident matches; uncertain matches require review. Use only material you are authorized to access. Musicdl is installed in a separate Python environment to avoid conflicts with StreamRip.
+QQ Music and NetEase search is available through musicdl during sync when Soulseek has no usable results, and manually on each track’s review page. YouTube is the final fallback; yt-dlp searches likely official/topic uploads first and converts a chosen result to MP3 with ffmpeg. YouTube results always require manual review. Channel labels are hints, not proof of rights or authenticity; only download material you are authorized to use. Musicdl is installed in a separate Python environment to avoid conflicts with StreamRip.
 
 Other env (see `compose.yaml`): `DATABASE_URL`, `MUSIC_DIR`, `TZ=Asia/Singapore`, `LOG_LEVEL`, `SLSKD_URL`.
 
@@ -40,6 +40,7 @@ Other env (see `compose.yaml`): `DATABASE_URL`, `MUSIC_DIR`, `TZ=Asia/Singapore`
 - **Qobuz fallback** — tracks Soulseek can't supply (no usable candidates) get a Qobuz attempt via StreamRip at the end of each sync; confident matches download, the rest land in review with Qobuz candidates. Needs a premium Qobuz account, disabled otherwise.
 - **Deezer fallback** — same pass tries Deezer (premium arl) for whatever Qobuz couldn't supply either. Manual `Sync now` per playlist, plus an **automatic schedule** (`sync_interval`: `daily_HHMM` in Asia/Singapore, `hourly`, or `off`; sweeper runs every 5 min).
 - **QQ Music and NetEase search** — automatic fallback during sync with confidence-based downloading, plus manual search from a track’s review page.
+- **YouTube fallback** — last search pass for tracks missing from the other sources. YouTube candidates are never auto-downloaded; review the channel and video, then explicitly choose a candidate. yt-dlp extracts MP3 using ffmpeg. Toggle YouTube in Settings.
 - **Review workflow** — low-confidence matches land on `/review` with scored candidates, paged 10 at a time. Per track: use-this / reject / undo, skip / unskip, retry, and **custom Soulseek search terms**. `Retry all` resets review + failed back to pending.
 - **Tagging** — every download is stamped with playlist-derived title/artist/album (+ track no, year, ISRC); `POST /api/library/retag` backfills the whole library.
 - **Library maintenance** (dashboard buttons, all with live job status + dry runs):

@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     preferred_format: str = "original"
     source_slskd_enabled: bool = True
     source_musicdl_enabled: bool = True
+    source_youtube_enabled: bool = True
 
     # slskd (Soulseek) download layer
     slskd_url: str = "http://slskd:5030"
@@ -53,6 +54,9 @@ class Settings(BaseSettings):
     deezer_arl: str = ""
     deezer_quality: int = 2  # 0=128k, 1=320k, 2=CD 16/44.1 (paid)
     deezer_max_per_run: int = 25
+
+    # YouTube is a last-resort source. Downloads always require review.
+    youtube_max_per_run: int = 25
 
     # batch sync parallelism
     sync_search_workers: int = 5

@@ -22,6 +22,10 @@ def _downloader_for(provider: str | None):
         from app.downloaders.musicdl import MusicdlDownloader
 
         return MusicdlDownloader()
+    if prov == "youtube":
+        from app.downloaders.youtube import YouTubeDownloader
+
+        return YouTubeDownloader()
     if prov not in ("", "soulseek"):
         raise ValueError(f"Unsupported download provider: {prov}")
     from app.downloaders.slskd import SlskdDownloader
@@ -35,6 +39,8 @@ def _source_url(provider: str | None, provider_track_id: str) -> str:
         return f"{prov}://{provider_track_id}"
     if prov == "musicdl":
         return f"musicdl://{provider_track_id}"
+    if prov == "youtube":
+        return f"https://www.youtube.com/watch?v={provider_track_id}"
     return f"soulseek://{provider_track_id}"
 
 
@@ -57,7 +63,11 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
                 continue
             from app.db.settings_store import source_enabled
 
-            source = {"soulseek": "slskd", "musicdl": "musicdl"}.get(cand.provider)
+            source = {
+                "soulseek": "slskd",
+                "musicdl": "musicdl",
+                "youtube": "youtube",
+            }.get(cand.provider)
             if source and not source_enabled(db, source):
                 log.info("candidate %s skipped: %s disabled", candidate_id, source)
                 continue
@@ -76,7 +86,7 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
                 prov = (cand.provider or "").lower()
                 dest = (
                     f"/downloads/{prov}-{track_id}"
-                    if prov in ("qobuz", "deezer", "musicdl")
+                    if prov in ("qobuz", "deezer", "musicdl", "youtube")
                     else "/downloads"
                 )
                 tmp = Path(_downloader_for(cand.provider).download(result, dest))

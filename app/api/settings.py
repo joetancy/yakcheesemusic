@@ -24,6 +24,7 @@ def get_settings_route(db: Session = Depends(get_db)):
         "preferred_format": settings_store.get_setting(db, "preferred_format"),
         "source_slskd_enabled": settings_store.source_enabled(db, "slskd"),
         "source_musicdl_enabled": settings_store.source_enabled(db, "musicdl"),
+        "source_youtube_enabled": settings_store.source_enabled(db, "youtube"),
     }
 
 

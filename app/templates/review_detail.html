@@ -7,8 +7,8 @@
 <p class="muted">{{ reason }}</p>
 <section class="card review-actions">
 <header><h2>Search and review actions</h2><p>Find alternate versions or update this track’s status.</p></header>
-<div class="action-row"><button class="btn" onclick="searchNow(this)" {% if not source_slskd_enabled %}disabled{% endif %}>Search Soulseek</button><button class="btn" data-variant="outline" onclick="searchMusicdl(this)" {% if not source_musicdl_enabled %}disabled{% endif %}>Search QQ Music &amp; NetEase</button><button class="btn" data-variant="outline" onclick="act('retry',this)">Reset to pending</button></div>
-{% if not source_slskd_enabled or not source_musicdl_enabled %}<p class="muted">{% if not source_slskd_enabled and not source_musicdl_enabled %}Soulseek and Musicdl are disabled.{% elif not source_slskd_enabled %}Soulseek is disabled. Use QQ Music &amp; NetEase if enabled, or{% else %}Musicdl is disabled. Use Soulseek if enabled, or{% endif %} <a href="/settings">change search sources in Settings</a>.</p>{% endif %}
+<div class="action-row"><button class="btn" onclick="searchNow(this)" {% if not source_slskd_enabled %}disabled{% endif %}>Search Soulseek</button><button class="btn" data-variant="outline" onclick="searchMusicdl(this)" {% if not source_musicdl_enabled %}disabled{% endif %}>Search QQ Music &amp; NetEase</button><button class="btn" data-variant="outline" onclick="searchYouTube(this)" {% if not source_youtube_enabled %}disabled{% endif %}>Search YouTube</button><button class="btn" data-variant="outline" onclick="act('retry',this)">Reset to pending</button></div>
+{% if not source_slskd_enabled or not source_musicdl_enabled or not source_youtube_enabled %}<p class="muted">One or more search sources are disabled. <a href="/settings">Change search sources in Settings</a>.</p>{% endif %}
 <form class="custom-search" onsubmit="event.preventDefault();searchNow(this.querySelector('[type=submit]'))"><div role="group" class="field"><label for="custom-q">Custom search term <span class="muted">(optional)</span></label><input class="input" id="custom-q" placeholder="Enter a title or artist"></div><button class="btn" data-variant="outline" type="submit" {% if not source_slskd_enabled %}disabled{% endif %}>Search Soulseek with term</button></form>
 <div class="action-row secondary-actions">{% if track.status == 'skipped' %}<button class="btn" data-variant="outline" onclick="act('unskip',this)">Unskip track</button>{% else %}<button class="btn" data-variant="outline" onclick="act('skip',this)">Skip track</button>{% endif %}</div>
 <span id="result" class="action-feedback muted" role="status" aria-live="polite"></span>
@@ -18,13 +18,14 @@
 <button class="btn" type="button" role="tab" id="candidate-tab-all" aria-selected="true" aria-controls="candidate-results" tabindex="0" data-provider-filter="all">All results</button>
 <button class="btn" type="button" data-variant="outline" role="tab" id="candidate-tab-soulseek" aria-selected="false" aria-controls="candidate-results" tabindex="-1" data-provider-filter="soulseek">Soulseek</button>
 <button class="btn" type="button" data-variant="outline" role="tab" id="candidate-tab-musicdl" aria-selected="false" aria-controls="candidate-results" tabindex="-1" data-provider-filter="musicdl">Musicdl</button>
+<button class="btn" type="button" data-variant="outline" role="tab" id="candidate-tab-youtube" aria-selected="false" aria-controls="candidate-results" tabindex="-1" data-provider-filter="youtube">YouTube</button>
 </div>
 <p id="candidate-filter-empty" class="empty-state" role="status" hidden>No results from this source.</p>
 <div class="table-container" id="candidate-results" role="tabpanel" aria-labelledby="candidate-tab-all" tabindex="0"><table class="table rtable"><thead><tr><th>Score</th><th>Verdict</th><th>Quality</th><th>Title</th><th>Artist</th><th>Source file</th><th>Actions</th></tr></thead><tbody>
 {% for c in candidates %}<tr data-candidate-result data-provider="{{ c.provider }}"{% if c.rejected %} style="opacity:.45"{% endif %}>
 <td data-label="Score">{{ "%.1f"|format(c.score or 0) }}</td><td data-label="Verdict">{{ c.verdict or "—" }}</td>
 <td data-label="Quality">{{ c.quality or "—" }}</td><td data-label="Title">{{ c.title }}</td><td data-label="Artist">{{ c.artist }}</td>
-<td data-label="Source file"><span>{{ c.source or "—" }}</span></td>
+<td data-label="Source file">{% if c.provider == 'youtube' and c.source %}<a href="{{ c.source }}" target="_blank" rel="noopener noreferrer">Open video</a>{% else %}<span>{{ c.source or "—" }}</span>{% endif %}</td>
 <td data-label="Actions"><div class="action-buttons">{% if c.rejected %}<span>Rejected</span> <button class="btn" data-variant="outline" onclick="unreject({{ c.id }},this)">Undo rejection</button>
 {% else %}<button class="btn" onclick="useCand({{ c.id }},this)">Use this candidate</button> <button class="btn" data-variant="outline" onclick="reject({{ c.id }},this)">Reject</button>{% endif %}</div></td>
 </tr>{% else %}<tr><td colspan="7">No candidates yet — hit Search again.</td></tr>{% endfor %}
@@ -94,6 +95,16 @@ async function searchMusicdl(button){
     await pollTrack(TID, el);
     setFeedback(el,'Search finished. Refreshing candidates…','success');setTimeout(()=>location.reload(),500);
   }catch(e){setFeedback(el,`Search could not finish: ${e.message}`,'error');setBusy(button,false);}
+}
+async function searchYouTube(button){
+  const el=document.getElementById('result');setFeedback(el,'Starting YouTube search…','loading');setBusy(button,true,'Searching…');
+  try{
+    const query=document.getElementById('custom-q').value.trim();
+    await readResponse(await fetch('/api/tracks/'+TID+'/search-youtube',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})}));
+    setFeedback(el,'Searching YouTube… results will need your review.','loading');
+    await pollTrack(TID, el);
+    setFeedback(el,'Search finished. Refreshing candidates…','success');setTimeout(()=>location.reload(),500);
+  }catch(e){setFeedback(el,`YouTube search could not finish: ${e.message}`,'error');setBusy(button,false);}
 }
 function useCand(id,button){ if(confirm('Download this candidate?')) post('/api/tracks/'+TID+'/download', {candidate_id:id},button); }
 function reject(id,button){ post('/api/tracks/'+TID+'/reject', {candidate_id:id},button); }

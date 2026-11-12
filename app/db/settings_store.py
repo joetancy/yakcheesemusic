@@ -14,6 +14,7 @@ KEYS = (
     "preferred_format",
     "source_slskd_enabled",
     "source_musicdl_enabled",
+    "source_youtube_enabled",
 )
 
 
@@ -63,7 +64,11 @@ def all_effective(db: Session) -> dict:
 
 def validate(key: str, value: str, current: dict) -> float | str:
     """Return parsed value or raise ValueError."""
-    if key in ("source_slskd_enabled", "source_musicdl_enabled"):
+    if key in (
+        "source_slskd_enabled",
+        "source_musicdl_enabled",
+        "source_youtube_enabled",
+    ):
         if isinstance(value, bool):
             return value
         raise ValueError(f"{key} must be a boolean")

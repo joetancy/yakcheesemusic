@@ -84,6 +84,10 @@ def _attempt(session_factory, track_id: int, source: str) -> str:
 
         ranked = match_candidates(catalogue, dicts, auto, conditional, review)
         save_candidates(db, track_id, ranked)
+        if source == "youtube":
+            t.status = "needs_review"
+            db.commit()
+            return "review"
         action, pick = decide(ranked, auto, conditional, review)
         if action == "review" or not pick:
             t.status = "needs_review"
@@ -116,6 +120,14 @@ def _attempt(session_factory, track_id: int, source: str) -> str:
 
 
 def _source_spec(source: str) -> dict:
+    if source == "youtube":
+        from app.downloaders.youtube import YouTubeDownloader
+
+        return {
+            "downloader": YouTubeDownloader,
+            "configured": lambda: True,
+            "max_per_run": "youtube_max_per_run",
+        }
     if source == "deezer":
         from app.downloaders.streamrip_deezer import DeezerDownloader, configured
 
@@ -146,6 +158,15 @@ def run_source_fallback(
     summary = {"attempted": 0, "downloaded": 0, "review": 0}
     if not spec["configured"]():
         return summary
+    if source == "youtube":
+        from app.db.settings_store import source_enabled
+
+        check = session_factory()
+        try:
+            if not source_enabled(check, "youtube"):
+                return summary
+        finally:
+            check.close()
     db = session_factory()
     try:
         members = (
@@ -227,3 +248,8 @@ def run_qobuz_fallback(session_factory, job_id: int, playlist_id: int) -> dict:
 def run_deezer_fallback(session_factory, job_id: int, playlist_id: int) -> dict:
     """Deezer pass for tracks Qobuz couldn't supply either."""
     return run_source_fallback(session_factory, job_id, playlist_id, "deezer")
+
+
+def run_youtube_fallback(session_factory, job_id: int, playlist_id: int) -> dict:
+    """YouTube pass for tracks no configured source could find; always review."""
+    return run_source_fallback(session_factory, job_id, playlist_id, "youtube")

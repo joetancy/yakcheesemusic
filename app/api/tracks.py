@@ -129,6 +129,91 @@ def search_musicdl(
     return {"ok": True, "status": "searching"}
 
 
+@router.post("/{track_id}/search-youtube")
+def search_youtube(
+    track_id: int, payload: dict | None = None, db: Session = Depends(get_db)
+):
+    """Search YouTube as a last-resort source; results always need review."""
+    import threading
+    from fastapi import HTTPException
+    from app.db.settings_store import source_enabled
+
+    t = db.get(Track, track_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Not found")
+    if t.status == "searching":
+        raise HTTPException(status_code=409, detail="Search already running")
+    if not source_enabled(db, "youtube"):
+        raise HTTPException(status_code=403, detail="YouTube is disabled in Settings.")
+    t.status = "searching"
+    db.commit()
+    query = ((payload or {}).get("query") or "").strip() or None
+    threading.Thread(
+        target=_run_youtube_search, args=(track_id, query), daemon=True
+    ).start()
+    return {"ok": True, "status": "searching"}
+
+
+def _run_youtube_search(track_id: int, query: str | None = None, session_factory=None):
+    """Search and queue YouTube results for manual selection, never auto-download."""
+    import logging
+    from app.db.database import SessionLocal
+    from app.db.models import Track
+    from app.db.settings_store import get_thresholds
+    from app.downloaders.youtube import YouTubeDownloader
+    from app.matching.matcher import match_candidates
+    from app.sync.search import save_candidates
+
+    log = logging.getLogger("yakcheesemusic")
+    db = (session_factory or SessionLocal)()
+    try:
+        t = db.get(Track, track_id)
+        if not t:
+            return
+        results = YouTubeDownloader().search(
+            t.title, t.artist, t.album or "", query=query
+        )
+        candidates = [
+            {
+                "provider": r.provider,
+                "provider_track_id": r.provider_track_id,
+                "title": r.title,
+                "artist": r.artist,
+                "album": r.album,
+                "duration_ms": r.duration_ms,
+                "quality": r.quality,
+                "format": r.format,
+                "size": r.size,
+                "source_url": r.source_url,
+            }
+            for r in results
+        ]
+        source = {
+            "title": t.title,
+            "artist": t.artist,
+            "album": t.album or "",
+            "duration_ms": t.duration_ms,
+            "isrc": t.isrc,
+        }
+        ranked = match_candidates(source, candidates, *get_thresholds(db))
+        save_candidates(db, track_id, ranked)
+        t.status = "needs_review"
+        db.commit()
+        log.info("track=%s action=youtube-search status=done results=%s", track_id, len(ranked))
+    except Exception as e:
+        log.warning("track=%s action=youtube-search status=error error=%s", track_id, e)
+        try:
+            db.rollback()
+            t = db.get(Track, track_id)
+            if t:
+                t.status = "failed"
+                db.commit()
+        except Exception:
+            db.rollback()
+    finally:
+        db.close()
+
+
 def _run_musicdl_search(
     track_id: int, query: str | None = None, session_factory=None
 ) -> None:
@@ -313,7 +398,11 @@ def download_track(
             raise HTTPException(status_code=404, detail="No candidates — search first")
     from app.db.settings_store import source_enabled
 
-    source = {"soulseek": "slskd", "musicdl": "musicdl"}.get(cand.provider)
+    source = {
+        "soulseek": "slskd",
+        "musicdl": "musicdl",
+        "youtube": "youtube",
+    }.get(cand.provider)
     if source and not source_enabled(db, source):
         raise HTTPException(
             status_code=403, detail="This source is disabled in Settings."

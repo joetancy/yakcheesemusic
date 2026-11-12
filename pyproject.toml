@@ -17,6 +17,7 @@ dependencies = [
   "python-multipart>=0.0.9",
   "playwright>=1.40",
   "streamrip>=2.0",
+  "yt-dlp[default]>=2026.10.26",
 ]
 
 [project.optional-dependencies]
