@@ -48,7 +48,9 @@ def _open_site(browser):
         page.get_by_role("button", name="我知道了", exact=True).click(timeout=1500)
     except Exception:
         pass
-    page.locator(".search-form input").wait_for(state="visible", timeout=30000)
+    page.locator('.search-form input.ant-input[type="text"]').wait_for(
+        state="visible", timeout=30000
+    )
     return context, page
 
 
@@ -67,7 +69,7 @@ def _search_page(page, keyword: str, platform: str) -> list[dict]:
         and response.request.method == "POST",
         timeout=45000,
     ) as response_info:
-        page.locator(".search-form input").fill(keyword)
+        page.locator('.search-form input.ant-input[type="text"]').fill(keyword)
         page.locator('.search-form button[type="submit"]').click()
     payload = response_info.value.json()
     if payload.get("code") != 0:
