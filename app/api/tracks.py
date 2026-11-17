@@ -409,7 +409,6 @@ def download_track(
         )
     cand.selected = True
     t.status = "downloading"
-    t.download_provider = cand.provider
     db.commit()
     # try the chosen candidate first, then the next-best as failover
     # (peers routinely go offline between search and download)

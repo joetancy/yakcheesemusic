@@ -83,11 +83,11 @@ def _to_result(item: dict, platform: str) -> SearchResult | None:
     if song_id is None or not title:
         return None
     duration = _seconds(item.get("duration") or item.get("time"))
-    flags = []
+    formats = []
     if item.get("hasSQ"):
-        flags.append("site marks SQ")
+        formats.append("FLAC available (SQ)")
     if item.get("hasHQ"):
-        flags.append("site marks HQ")
+        formats.append("320 kbps available (HQ)")
     return SearchResult(
         provider="flac_music",
         provider_track_id=f"{platform}:{song_id}",
@@ -95,7 +95,7 @@ def _to_result(item: dict, platform: str) -> SearchResult | None:
         artist=(item.get("artist") or "").strip(),
         album=(item.get("album_name") or "").strip(),
         duration_ms=duration * 1000 if duration is not None else None,
-        quality=", ".join(flags) or None,
+        quality="; ".join(formats) or None,
         # The site chooses the file format after the user-visible download
         # options are opened. Preserve the real returned extension below.
         format=None,
@@ -161,7 +161,10 @@ class FlacMusicDownloader(DownloaderBase):
             choice.click()
             detail = page.locator(".download-detail")
             detail.wait_for(state="visible", timeout=45000)
-            link = detail.get_by_role("link", name="点击下载", exact=True)
+            # The anchor's download icon has aria-label="download", which is
+            # included in its accessible name. Match the visible link text
+            # instead of an exact accessible name.
+            link = detail.locator("a").filter(has_text="点击下载")
             link.wait_for(state="visible", timeout=15000)
             download_url = link.get_attribute("href")
             if not download_url:
