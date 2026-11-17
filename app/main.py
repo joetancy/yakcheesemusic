@@ -160,7 +160,7 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
             "preferred_format": settings_store.get_setting(db, "preferred_format"),
             "source_slskd_enabled": settings_store.source_enabled(db, "slskd"),
             "source_musicdl_enabled": settings_store.source_enabled(db, "musicdl"),
-            "source_youtube_enabled": settings_store.source_enabled(db, "youtube"),
+            "source_flac_music_enabled": settings_store.source_enabled(db, "flac_music"),
             "music_dir": settings.music_dir,
             "replaygain_target": settings.replaygain_target_lufs,
             "removed_policy": settings.removed_track_policy,
@@ -228,7 +228,7 @@ def playlist_detail(
             "total_files": size_files,
             "source_slskd_enabled": source_enabled(db, "slskd"),
             "source_musicdl_enabled": source_enabled(db, "musicdl"),
-            "source_youtube_enabled": source_enabled(db, "youtube"),
+            "source_flac_music_enabled": source_enabled(db, "flac_music"),
         },
     )
 
@@ -323,6 +323,6 @@ def review_detail(
             "total_candidates": total,
             "source_slskd_enabled": source_enabled(db, "slskd"),
             "source_musicdl_enabled": source_enabled(db, "musicdl"),
-            "source_youtube_enabled": source_enabled(db, "youtube"),
+            "source_flac_music_enabled": source_enabled(db, "flac_music"),
         },
     )

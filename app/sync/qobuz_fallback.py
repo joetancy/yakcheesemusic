@@ -84,7 +84,7 @@ def _attempt(session_factory, track_id: int, source: str) -> str:
 
         ranked = match_candidates(catalogue, dicts, auto, conditional, review)
         save_candidates(db, track_id, ranked)
-        if source == "youtube":
+        if source == "flac_music":
             t.status = "needs_review"
             db.commit()
             return "review"
@@ -120,13 +120,13 @@ def _attempt(session_factory, track_id: int, source: str) -> str:
 
 
 def _source_spec(source: str) -> dict:
-    if source == "youtube":
-        from app.downloaders.youtube import YouTubeDownloader
+    if source == "flac_music":
+        from app.downloaders.flac_music import FlacMusicDownloader
 
         return {
-            "downloader": YouTubeDownloader,
+            "downloader": FlacMusicDownloader,
             "configured": lambda: True,
-            "max_per_run": "youtube_max_per_run",
+            "max_per_run": "flac_music_max_per_run",
         }
     if source == "deezer":
         from app.downloaders.streamrip_deezer import DeezerDownloader, configured
@@ -158,12 +158,12 @@ def run_source_fallback(
     summary = {"attempted": 0, "downloaded": 0, "review": 0}
     if not spec["configured"]():
         return summary
-    if source == "youtube":
+    if source == "flac_music":
         from app.db.settings_store import source_enabled
 
         check = session_factory()
         try:
-            if not source_enabled(check, "youtube"):
+            if not source_enabled(check, "flac_music"):
                 return summary
         finally:
             check.close()
@@ -250,6 +250,6 @@ def run_deezer_fallback(session_factory, job_id: int, playlist_id: int) -> dict:
     return run_source_fallback(session_factory, job_id, playlist_id, "deezer")
 
 
-def run_youtube_fallback(session_factory, job_id: int, playlist_id: int) -> dict:
-    """YouTube pass for tracks no configured source could find; always review."""
-    return run_source_fallback(session_factory, job_id, playlist_id, "youtube")
+def run_flac_music_fallback(session_factory, job_id: int, playlist_id: int) -> dict:
+    """FLAC Music pass for tracks no configured source could find; always review."""
+    return run_source_fallback(session_factory, job_id, playlist_id, "flac_music")

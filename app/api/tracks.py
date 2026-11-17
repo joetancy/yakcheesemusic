@@ -129,11 +129,11 @@ def search_musicdl(
     return {"ok": True, "status": "searching"}
 
 
-@router.post("/{track_id}/search-youtube")
-def search_youtube(
+@router.post("/{track_id}/search-flac-music")
+def search_flac_music(
     track_id: int, payload: dict | None = None, db: Session = Depends(get_db)
 ):
-    """Search YouTube as a last-resort source; results always need review."""
+    """Search FLAC Music as a last-resort source; results always need review."""
     import threading
     from fastapi import HTTPException
     from app.db.settings_store import source_enabled
@@ -143,24 +143,24 @@ def search_youtube(
         raise HTTPException(status_code=404, detail="Not found")
     if t.status == "searching":
         raise HTTPException(status_code=409, detail="Search already running")
-    if not source_enabled(db, "youtube"):
-        raise HTTPException(status_code=403, detail="YouTube is disabled in Settings.")
+    if not source_enabled(db, "flac_music"):
+        raise HTTPException(status_code=403, detail="FLAC Music is disabled in Settings.")
     t.status = "searching"
     db.commit()
     query = ((payload or {}).get("query") or "").strip() or None
     threading.Thread(
-        target=_run_youtube_search, args=(track_id, query), daemon=True
+        target=_run_flac_music_search, args=(track_id, query), daemon=True
     ).start()
     return {"ok": True, "status": "searching"}
 
 
-def _run_youtube_search(track_id: int, query: str | None = None, session_factory=None):
-    """Search and queue YouTube results for manual selection, never auto-download."""
+def _run_flac_music_search(track_id: int, query: str | None = None, session_factory=None):
+    """Search and queue FLAC Music results for manual selection."""
     import logging
     from app.db.database import SessionLocal
     from app.db.models import Track
     from app.db.settings_store import get_thresholds
-    from app.downloaders.youtube import YouTubeDownloader
+    from app.downloaders.flac_music import FlacMusicDownloader
     from app.matching.matcher import match_candidates
     from app.sync.search import save_candidates
 
@@ -170,7 +170,7 @@ def _run_youtube_search(track_id: int, query: str | None = None, session_factory
         t = db.get(Track, track_id)
         if not t:
             return
-        results = YouTubeDownloader().search(
+        results = FlacMusicDownloader().search(
             t.title, t.artist, t.album or "", query=query
         )
         candidates = [
@@ -199,9 +199,9 @@ def _run_youtube_search(track_id: int, query: str | None = None, session_factory
         save_candidates(db, track_id, ranked)
         t.status = "needs_review"
         db.commit()
-        log.info("track=%s action=youtube-search status=done results=%s", track_id, len(ranked))
+        log.info("track=%s action=flac-music-search status=done results=%s", track_id, len(ranked))
     except Exception as e:
-        log.warning("track=%s action=youtube-search status=error error=%s", track_id, e)
+        log.warning("track=%s action=flac-music-search status=error error=%s", track_id, e)
         try:
             db.rollback()
             t = db.get(Track, track_id)
@@ -401,7 +401,7 @@ def download_track(
     source = {
         "soulseek": "slskd",
         "musicdl": "musicdl",
-        "youtube": "youtube",
+        "flac_music": "flac_music",
     }.get(cand.provider)
     if source and not source_enabled(db, source):
         raise HTTPException(
