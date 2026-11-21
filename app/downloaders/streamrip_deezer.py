@@ -109,6 +109,12 @@ def _track_to_result(item: dict) -> SearchResult | None:
             duration_ms = int(dur) if dur > 10000 else int(dur * 1000)
     except (TypeError, ValueError):
         duration_ms = None
+    configured_quality = get_settings().deezer_quality
+    quality_level = int(configured_quality if configured_quality is not None else 2)
+    fmt = "mp3" if quality_level < 2 else "flac"
+    label = "Target: MP3 128 kbps" if quality_level == 0 else (
+        "Target: MP3 320 kbps" if quality_level == 1 else "Target: FLAC 16/44.1"
+    )
     return SearchResult(
         provider="deezer",
         provider_track_id=f"deezer:{tid}",
@@ -116,8 +122,8 @@ def _track_to_result(item: dict) -> SearchResult | None:
         artist=str(artist),
         album=str(album),
         duration_ms=duration_ms,
-        quality="Deezer",
-        format=None,
+        quality=label,
+        format=fmt,
         source_url=f"https://www.deezer.com/track/{tid}",
     )
 

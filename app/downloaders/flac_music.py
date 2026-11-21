@@ -88,6 +88,7 @@ def _to_result(item: dict, platform: str) -> SearchResult | None:
         formats.append("FLAC available (SQ)")
     if item.get("hasHQ"):
         formats.append("320 kbps available (HQ)")
+    best_format = "flac" if item.get("hasSQ") else "mp3" if item.get("hasHQ") else None
     return SearchResult(
         provider="flac_music",
         provider_track_id=f"{platform}:{song_id}",
@@ -96,9 +97,9 @@ def _to_result(item: dict, platform: str) -> SearchResult | None:
         album=(item.get("album_name") or "").strip(),
         duration_ms=duration * 1000 if duration is not None else None,
         quality="; ".join(formats) or None,
-        # The site chooses the file format after the user-visible download
-        # options are opened. Preserve the real returned extension below.
-        format=None,
+        # Search exposes SQ/HQ availability; the download panel still
+        # determines the actual file format and extension.
+        format=best_format,
         source_url=SITE_URL,
     )
 

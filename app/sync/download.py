@@ -67,6 +67,8 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
                 "soulseek": "slskd",
                 "musicdl": "musicdl",
                 "flac_music": "flac_music",
+                "qobuz": "qobuz",
+                "deezer": "deezer",
             }.get(cand.provider)
             if source and not source_enabled(db, source):
                 log.info("candidate %s skipped: %s disabled", candidate_id, source)

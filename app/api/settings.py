@@ -25,6 +25,10 @@ def get_settings_route(db: Session = Depends(get_db)):
         "source_slskd_enabled": settings_store.source_enabled(db, "slskd"),
         "source_musicdl_enabled": settings_store.source_enabled(db, "musicdl"),
         "source_flac_music_enabled": settings_store.source_enabled(db, "flac_music"),
+        "source_qobuz_enabled": settings_store.source_enabled(db, "qobuz"),
+        "source_deezer_enabled": settings_store.source_enabled(db, "deezer"),
+        "qobuz_configured": bool(s.qobuz_email and s.qobuz_password),
+        "deezer_configured": bool(s.deezer_arl),
     }
 
 

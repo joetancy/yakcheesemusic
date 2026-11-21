@@ -36,26 +36,27 @@ class Settings(BaseSettings):
     source_slskd_enabled: bool = True
     source_musicdl_enabled: bool = True
     source_flac_music_enabled: bool = False
+    source_qobuz_enabled: bool = True
+    source_deezer_enabled: bool = True
 
-    # slskd (Soulseek) download layer
+    # slskd (Soulseek) provider
     slskd_url: str = "http://slskd:5030"
     slskd_api_key: str = ""
     slskd_search_timeout_s: int = 45
     slskd_download_timeout_s: int = 1800
 
-    # StreamRip/Qobuz fallback for tracks Soulseek can't supply.
-    # Disabled automatically when email/password are unset.
+    # StreamRip/Qobuz provider credentials; search requires these values.
     qobuz_email: str = ""
     qobuz_password: str = ""
     qobuz_quality: int = 2  # 1=320 MP3, 2=CD 16/44.1, 3=24/<=96, 4=24/>=96
     qobuz_max_per_run: int = 25
 
-    # StreamRip/Deezer second fallback (premium arl cookie).
+    # StreamRip/Deezer provider credentials (premium arl cookie).
     deezer_arl: str = ""
     deezer_quality: int = 2  # 0=128k, 1=320k, 2=CD 16/44.1 (paid)
     deezer_max_per_run: int = 25
 
-    # FLAC Music is a last-resort source. Downloads always require review.
+    # FLAC Music uses browser-driven search and download controls.
     flac_music_max_per_run: int = 25
 
     # batch sync parallelism

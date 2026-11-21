@@ -84,12 +84,7 @@ def search_one(session_factory, track_id: int) -> tuple[str, int, list[int]]:
     """
     from app.db.models import DownloadCandidate, Track
     from app.db.settings_store import get_thresholds, source_enabled
-    from app.sync.search import rejected_keys
-    from app.sync.search import (
-        search_candidates,
-        search_musicdl_candidates,
-        save_candidates,
-    )
+    from app.sync.search import rejected_keys, save_candidates, search_all_candidates
 
     db = session_factory()
     try:
@@ -100,10 +95,17 @@ def search_one(session_factory, track_id: int) -> tuple[str, int, list[int]]:
         db.commit()
         try:
             auto, conditional, review = get_thresholds(db)
-            ranked = (
-                search_candidates(t, auto, conditional, review)
-                if source_enabled(db, "slskd")
-                else []
+            enabled_sources = {
+                source
+                for source in ("slskd", "musicdl", "qobuz", "deezer", "flac_music")
+                if source_enabled(db, source)
+            }
+            ranked = search_all_candidates(
+                t,
+                auto,
+                conditional,
+                review,
+                enabled_sources=enabled_sources,
             )
         except Exception as e:
             log.warning("track=%s action=search status=error error=%s", track_id, e)
@@ -111,17 +113,6 @@ def search_one(session_factory, track_id: int) -> tuple[str, int, list[int]]:
         rej = rejected_keys(db, track_id)
         for c in ranked:
             c["rejected"] = c["provider_track_id"] in rej
-        if not any(not c["rejected"] for c in ranked) and source_enabled(db, "musicdl"):
-            try:
-                musicdl_ranked = search_musicdl_candidates(t, auto, conditional, review)
-                if musicdl_ranked:
-                    ranked = musicdl_ranked
-                    for c in ranked:
-                        c["rejected"] = c["provider_track_id"] in rej
-            except Exception as e:
-                log.warning(
-                    "track=%s action=musicdl-search status=error error=%s", track_id, e
-                )
         if not ranked:
             t.status = "needs_review"
             db.commit()
@@ -151,7 +142,6 @@ def search_one(session_factory, track_id: int) -> tuple[str, int, list[int]]:
             c.id for c in rows if c.id != id_by_key[pick_key] and not c.rejected_reason
         ][:7]
         t.status = "downloading"
-        t.download_provider = pick["provider"]
         db.commit()
         return "download", track_id, ordered
     finally:
@@ -249,18 +239,6 @@ def run_playlist_sync(session_factory, playlist_id: int, job_id: int) -> None:
             playlist = db.get(Playlist, playlist_id)
             job = db.get(SyncJob, job_id)
             playlist.last_sync_at = _now()
-            try:  # Streaming sources for tracks Soulseek couldn't supply
-                from app.sync.qobuz_fallback import (
-                    run_deezer_fallback,
-                    run_qobuz_fallback,
-                    run_flac_music_fallback,
-                )
-
-                run_qobuz_fallback(session_factory, job_id, playlist_id)
-                run_deezer_fallback(session_factory, job_id, playlist_id)
-                run_flac_music_fallback(session_factory, job_id, playlist_id)
-            except Exception as e:
-                log.warning("job=%s streaming fallback failed: %s", job_id, e)
             job.status = "success"
             job.finished_at = _now()
             db.commit()

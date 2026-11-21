@@ -107,6 +107,14 @@ def _track_to_result(item: dict) -> SearchResult | None:
         duration_ms = int(dur * 1000) if dur else None
     except (TypeError, ValueError):
         duration_ms = None
+    quality_level = int(get_settings().qobuz_quality or 2)
+    fmt = "mp3" if quality_level == 1 else "flac"
+    label = {
+        1: "Target: MP3 320 kbps",
+        2: "Target: FLAC 16/44.1",
+        3: "Target: FLAC up to 24/96",
+        4: "Target: FLAC 24/96+",
+    }.get(quality_level, "FLAC")
     return SearchResult(
         provider="qobuz",
         provider_track_id=f"qobuz:{tid}",
@@ -114,8 +122,8 @@ def _track_to_result(item: dict) -> SearchResult | None:
         artist=str(artist),
         album=str(album),
         duration_ms=duration_ms,
-        quality="Qobuz",
-        format=None,
+        quality=label,
+        format=fmt,
         source_url=item.get("url") or (f"https://www.qobuz.com/track/{tid}"),
     )
 

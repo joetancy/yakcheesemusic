@@ -15,6 +15,8 @@ KEYS = (
     "source_slskd_enabled",
     "source_musicdl_enabled",
     "source_flac_music_enabled",
+    "source_qobuz_enabled",
+    "source_deezer_enabled",
 )
 
 
@@ -68,6 +70,8 @@ def validate(key: str, value: str, current: dict) -> float | str:
         "source_slskd_enabled",
         "source_musicdl_enabled",
         "source_flac_music_enabled",
+        "source_qobuz_enabled",
+        "source_deezer_enabled",
     ):
         if isinstance(value, bool):
             return value

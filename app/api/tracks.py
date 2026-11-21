@@ -154,6 +154,105 @@ def search_flac_music(
     return {"ok": True, "status": "searching"}
 
 
+@router.post("/{track_id}/search-qobuz")
+def search_qobuz(
+    track_id: int, payload: dict | None = None, db: Session = Depends(get_db)
+):
+    return _start_catalogue_search(track_id, "qobuz", payload, db)
+
+
+@router.post("/{track_id}/search-deezer")
+def search_deezer(
+    track_id: int, payload: dict | None = None, db: Session = Depends(get_db)
+):
+    return _start_catalogue_search(track_id, "deezer", payload, db)
+
+
+def _start_catalogue_search(track_id: int, provider: str, payload, db: Session):
+    import threading
+    from fastapi import HTTPException
+    from app.db.settings_store import source_enabled
+
+    t = db.get(Track, track_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Not found")
+    if t.status == "searching":
+        raise HTTPException(status_code=409, detail="Search already running")
+    if not source_enabled(db, provider):
+        raise HTTPException(status_code=403, detail=f"{provider.title()} is disabled in Settings.")
+    if provider == "qobuz":
+        from app.downloaders.streamrip_qobuz import configured
+    else:
+        from app.downloaders.streamrip_deezer import configured
+    if not configured():
+        raise HTTPException(status_code=403, detail=f"{provider.title()} credentials are not configured.")
+    query = ((payload or {}).get("query") or "").strip() or None
+    t.status = "searching"
+    db.commit()
+    threading.Thread(
+        target=_run_catalogue_search, args=(track_id, provider, query), daemon=True
+    ).start()
+    return {"ok": True, "status": "searching"}
+
+
+def _run_catalogue_search(
+    track_id: int, provider: str, query: str | None = None, session_factory=None
+):
+    """Run a credential-backed provider search for manual review."""
+    import logging
+    from app.db.database import SessionLocal
+    from app.db.models import Track
+    from app.db.settings_store import get_thresholds
+    from app.matching.matcher import match_candidates
+    from app.sync.search import _search_downloader, save_candidates
+
+    downloaders = {}
+    if provider == "qobuz":
+        from app.downloaders.streamrip_qobuz import QobuzDownloader
+
+        downloaders[provider] = QobuzDownloader
+    elif provider == "deezer":
+        from app.downloaders.streamrip_deezer import DeezerDownloader
+
+        downloaders[provider] = DeezerDownloader
+    log = logging.getLogger("yakcheesemusic")
+    db = (session_factory or SessionLocal)()
+    try:
+        t = db.get(Track, track_id)
+        if not t:
+            return
+        candidates = _search_downloader(downloaders[provider], t, query)
+        source = {
+            "title": t.title,
+            "artist": t.artist,
+            "album": t.album or "",
+            "duration_ms": t.duration_ms,
+            "isrc": t.isrc,
+        }
+        ranked = match_candidates(source, candidates, *get_thresholds(db))
+        save_candidates(db, track_id, ranked)
+        t.status = "needs_review"
+        db.commit()
+        log.info(
+            "track=%s action=%s-search status=done results=%s",
+            track_id,
+            provider,
+            len(ranked),
+        )
+    except Exception as e:
+        log.warning("track=%s action=%s-search status=error error=%s", track_id, provider, e)
+        try:
+            db.rollback()
+            t = db.get(Track, track_id)
+            if t:
+                t.status = "failed"
+                db.commit()
+        except Exception:
+            db.rollback()
+    finally:
+        db.close()
+
+
 def _run_flac_music_search(track_id: int, query: str | None = None, session_factory=None):
     """Search and queue FLAC Music results for manual selection."""
     import logging
@@ -402,6 +501,8 @@ def download_track(
         "soulseek": "slskd",
         "musicdl": "musicdl",
         "flac_music": "flac_music",
+        "qobuz": "qobuz",
+        "deezer": "deezer",
     }.get(cand.provider)
     if source and not source_enabled(db, source):
         raise HTTPException(

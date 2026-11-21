@@ -161,6 +161,10 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
             "source_slskd_enabled": settings_store.source_enabled(db, "slskd"),
             "source_musicdl_enabled": settings_store.source_enabled(db, "musicdl"),
             "source_flac_music_enabled": settings_store.source_enabled(db, "flac_music"),
+            "source_qobuz_enabled": settings_store.source_enabled(db, "qobuz"),
+            "source_deezer_enabled": settings_store.source_enabled(db, "deezer"),
+            "qobuz_configured": bool(settings.qobuz_email and settings.qobuz_password),
+            "deezer_configured": bool(settings.deezer_arl),
             "music_dir": settings.music_dir,
             "replaygain_target": settings.replaygain_target_lufs,
             "removed_policy": settings.removed_track_policy,
@@ -229,6 +233,10 @@ def playlist_detail(
             "source_slskd_enabled": source_enabled(db, "slskd"),
             "source_musicdl_enabled": source_enabled(db, "musicdl"),
             "source_flac_music_enabled": source_enabled(db, "flac_music"),
+            "source_qobuz_enabled": source_enabled(db, "qobuz"),
+            "source_deezer_enabled": source_enabled(db, "deezer"),
+            "qobuz_configured": bool(settings.qobuz_email and settings.qobuz_password),
+            "deezer_configured": bool(settings.deezer_arl),
         },
     )
 
@@ -324,5 +332,9 @@ def review_detail(
             "source_slskd_enabled": source_enabled(db, "slskd"),
             "source_musicdl_enabled": source_enabled(db, "musicdl"),
             "source_flac_music_enabled": source_enabled(db, "flac_music"),
+            "source_qobuz_enabled": source_enabled(db, "qobuz"),
+            "source_deezer_enabled": source_enabled(db, "deezer"),
+            "qobuz_configured": bool(settings.qobuz_email and settings.qobuz_password),
+            "deezer_configured": bool(settings.deezer_arl),
         },
     )

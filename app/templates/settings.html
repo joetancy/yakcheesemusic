@@ -4,11 +4,13 @@
 {% block content %}
 <h1>Settings</h1>
 <details open data-remember="set-sources"><summary><svg class="ui-icon disclosure-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-right"></use></svg>Search sources</summary>
-<p class="muted">Soulseek is searched during sync. If it has no usable results, Musicdl searches QQ Music and NetEase. FLAC Music runs last and always requires review. Its SQ/HQ labels come from the site; the app records the downloaded file's actual format and measured bitrate.</p>
+<p class="muted">Sync searches every enabled, configured provider and scores the combined results. The strongest match downloads when it meets the confidence threshold; close competitors go to review. Set provider credentials in the container environment where required.</p>
 <form class="settings-form" onsubmit="return saveSources(event)">
 <div class="field"><label for="source-slskd">Soulseek (slskd)</label><input class="input" type="checkbox" role="switch" id="source-slskd" {% if source_slskd_enabled %}checked{% endif %}></div>
 <div class="field"><label for="source-musicdl">Musicdl (QQ Music and NetEase)</label><input class="input" type="checkbox" role="switch" id="source-musicdl" {% if source_musicdl_enabled %}checked{% endif %}></div>
 <div class="field"><label for="source-flac-music">FLAC Music (Kuwo and NetEase)</label><input class="input" type="checkbox" role="switch" id="source-flac-music" {% if source_flac_music_enabled %}checked{% endif %}></div>
+<div class="field"><label for="source-qobuz">Qobuz{% if not qobuz_configured %} (credentials not configured){% endif %}</label><input class="input" type="checkbox" role="switch" id="source-qobuz" {% if source_qobuz_enabled %}checked{% endif %}></div>
+<div class="field"><label for="source-deezer">Deezer{% if not deezer_configured %} (credentials not configured){% endif %}</label><input class="input" type="checkbox" role="switch" id="source-deezer" {% if source_deezer_enabled %}checked{% endif %}></div>
 <div class="form-actions"><button class="btn" type="submit">Save search sources</button><span id="sources-result" class="status-message" role="status" aria-live="polite"></span></div>
 </form></details>
 <details open data-remember="set-match"><summary><svg class="ui-icon disclosure-icon" aria-hidden="true"><use href="/static/icons.svg#chevron-right"></use></svg>Match confidence</summary>
@@ -47,7 +49,7 @@ async function saveSources(e){
   const el=document.getElementById('sources-result'),button=e.currentTarget.querySelector('[type="submit"]');
   setFeedback(el,'Saving search sources…','loading');setBusy(button,true,'Saving…');
   try{
-    await readResponse(await fetch('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_slskd_enabled:document.getElementById('source-slskd').checked,source_musicdl_enabled:document.getElementById('source-musicdl').checked,source_flac_music_enabled:document.getElementById('source-flac-music').checked})}));
+    await readResponse(await fetch('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_slskd_enabled:document.getElementById('source-slskd').checked,source_musicdl_enabled:document.getElementById('source-musicdl').checked,source_flac_music_enabled:document.getElementById('source-flac-music').checked,source_qobuz_enabled:document.getElementById('source-qobuz').checked,source_deezer_enabled:document.getElementById('source-deezer').checked})}));
     setFeedback(el,'Search sources saved.','success');
   }catch(err){setFeedback(el,`Could not save search sources: ${err.message}`,'error');}
   finally{setBusy(button,false);}

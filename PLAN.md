@@ -1,18 +1,18 @@
 # PLAN.md — yakcheesemusic implementation plan
 
-Source of truth: Spotify playlists. Download layer: Soulseek via slskd.
+Source of truth: Spotify playlists. Download layer: enabled providers compete by match score.
 Library: `/music` → `/srv/media/data/media/music`. TZ: Asia/Singapore.
 (YouTube Music import and yt-dlp were dropped; musicdl's account-free
 sources proved unusable from this server — see Soulseek decision.)
 
-Pipeline: playlist adapters → track catalogue → matching engine →
-download provider search (musicdl) → metadata normalization →
+Pipeline: playlist adapters → track catalogue → all-provider searches →
+shared candidate scoring and selection → metadata normalization →
 artwork + ReplayGain (-14 LUFS) → local library.
 
 One downloaded track may belong to many playlists (`playlist_tracks`).
 
-Provider priority (configurable): Qobuz > TIDAL > Deezer > Apple > Migu >
-QQ > NetEase > Kuwo > Kugou. No YouTube audio by default.
+Download providers: Soulseek, Musicdl, Qobuz, Deezer, and FLAC Music. The
+highest-scoring candidate is selected; higher quality breaks near-ties.
 
 Match weights: title 35 / artist 30 / album 15 / duration 15 / ISRC 5,
 exact-ISRC bonus, variant penalties (live/remix/karaoke/… unless in source),
