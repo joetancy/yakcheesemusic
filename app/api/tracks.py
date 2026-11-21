@@ -203,7 +203,6 @@ def _run_catalogue_search(
     from app.db.database import SessionLocal
     from app.db.models import Track
     from app.db.settings_store import get_thresholds
-    from app.matching.matcher import match_candidates
     from app.sync.search import _search_downloader, save_candidates
 
     downloaders = {}
@@ -221,15 +220,9 @@ def _run_catalogue_search(
         t = db.get(Track, track_id)
         if not t:
             return
-        candidates = _search_downloader(downloaders[provider], t, query)
-        source = {
-            "title": t.title,
-            "artist": t.artist,
-            "album": t.album or "",
-            "duration_ms": t.duration_ms,
-            "isrc": t.isrc,
-        }
-        ranked = match_candidates(source, candidates, *get_thresholds(db))
+        ranked = _search_downloader(
+            downloaders[provider], t, *get_thresholds(db), query
+        )
         save_candidates(db, track_id, ranked)
         t.status = "needs_review"
         db.commit()

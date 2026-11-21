@@ -142,6 +142,8 @@ def search_one(session_factory, track_id: int) -> tuple[str, int, list[int]]:
             c.id for c in rows if c.id != id_by_key[pick_key] and not c.rejected_reason
         ][:7]
         t.status = "downloading"
+        if not t.local_path:
+            t.download_provider = pick["provider"]
         db.commit()
         return "download", track_id, ordered
     finally:

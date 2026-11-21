@@ -127,14 +127,24 @@ def search_all_candidates(
 
         if configured():
             searches.append(
-                ("qobuz", lambda: _search_downloader(QobuzDownloader, track, query))
+                (
+                    "qobuz",
+                    lambda: _search_downloader(
+                        QobuzDownloader, track, auto, conditional, review, query
+                    ),
+                )
             )
     if "deezer" in enabled_sources:
         from app.downloaders.streamrip_deezer import DeezerDownloader, configured
 
         if configured():
             searches.append(
-                ("deezer", lambda: _search_downloader(DeezerDownloader, track, query))
+                (
+                    "deezer",
+                    lambda: _search_downloader(
+                        DeezerDownloader, track, auto, conditional, review, query
+                    ),
+                )
             )
     if "flac_music" in enabled_sources:
         from app.downloaders.flac_music import FlacMusicDownloader
@@ -142,7 +152,9 @@ def search_all_candidates(
         searches.append(
             (
                 "flac_music",
-                lambda: _search_downloader(FlacMusicDownloader, track, query),
+                lambda: _search_downloader(
+                    FlacMusicDownloader, track, auto, conditional, review, query
+                ),
             )
         )
 
@@ -172,24 +184,19 @@ def search_all_candidates(
         for candidate in results_by_provider.get(provider, [])
     ]
 
-    # The provider-specific helpers above may already have scored their
-    # results. Re-score the merged list so all sources use the same catalogue
-    # data and thresholds.
-    source = {
-        "title": track.title,
-        "artist": track.artist,
-        "album": track.album or "",
-        "duration_ms": track.duration_ms,
-        "isrc": track.isrc,
-    }
-    return match_candidates(source, candidates, auto, conditional, review)
+    # Each provider helper uses the same scorer, catalogue fields, and
+    # thresholds. Merge those scores directly so source candidates compete
+    # in one pool without changing their confidence verdicts.
+    return sorted(candidates, key=lambda candidate: candidate["score"], reverse=True)
 
 
-def _search_downloader(downloader_cls, track, query: str | None) -> list[dict]:
+def _search_downloader(
+    downloader_cls, track, auto, conditional, review, query: str | None
+) -> list[dict]:
     results = downloader_cls().search(
         track.title, track.artist, track.album or "", query=query
     )
-    return [
+    candidates = [
         {
             "provider": r.provider,
             "provider_track_id": r.provider_track_id,
@@ -204,6 +211,14 @@ def _search_downloader(downloader_cls, track, query: str | None) -> list[dict]:
         }
         for r in results
     ]
+    source = {
+        "title": track.title,
+        "artist": track.artist,
+        "album": track.album or "",
+        "duration_ms": track.duration_ms,
+        "isrc": track.isrc,
+    }
+    return match_candidates(source, candidates, auto, conditional, review)
 
 
 def save_candidates(db: Session, track_id: int, ranked: list[dict]) -> dict[str, int]:

@@ -219,12 +219,18 @@ def download_track_worker(track_id: int, candidate_ids: list[int]) -> None:
         t = db.get(Track, track_id)
         if t:
             t.status = "failed"
+            if not previous_path:
+                t.download_provider = None
+                t.download_source_url = None
             db.commit()
     except Exception:
         log.exception("download failed track=%s", track_id)
         t = db.get(Track, track_id)
         if t:
             t.status = "failed"
+            if not previous_path:
+                t.download_provider = None
+                t.download_source_url = None
             db.commit()
     finally:
         db.close()
