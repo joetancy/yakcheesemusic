@@ -419,3 +419,138 @@ def run_library_dedup(
             pass
     finally:
         db.close()
+
+
+def run_library_quality_prune(
+    session_factory, job_id: int, remove: bool = False, floor_kbps: int = 320
+) -> None:
+    """Remove measured lossy audio below the floor and queue tracked files again.
+
+    Lossless files are kept. Files without reliable codec/bitrate information
+    are reported and left alone. Preview mode performs no library mutations.
+    """
+    import logging
+    import os
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from app.audio.probe import below_bitrate_floor
+    from app.config import get_settings
+    from app.db.models import SyncJob, Track
+    from app.sync.prune import prune_empty_parents
+
+    log = logging.getLogger("yakcheesemusic")
+    music_dir = get_settings().music_dir
+    db = session_factory()
+    try:
+        job = db.get(SyncJob, job_id)
+        files = scan_audio_files(music_dir)
+        active_paths = {
+            path
+            for path, in db.execute(
+                select(Track.local_path).where(
+                    Track.local_path.is_not(None),
+                    Track.status.in_(("downloading", "processing")),
+                )
+            ).all()
+            if path
+        }
+        low_quality: list[tuple[str, str]] = []
+        unclassified: list[tuple[str, str]] = []
+        for path in files:
+            if path in active_paths:
+                unclassified.append((path, "active download"))
+                continue
+            below_floor, description = below_bitrate_floor(path, floor_kbps)
+            if below_floor is True:
+                low_quality.append((path, description))
+            elif below_floor is None:
+                unclassified.append((path, description))
+
+        log.info(
+            "job=%s action=quality-prune status=start files=%s below_floor=%s remove=%s floor=%skbps",
+            job_id,
+            len(files),
+            len(low_quality),
+            remove,
+            floor_kbps,
+        )
+        if job:
+            job.tracks_seen = len(files)
+            db.commit()
+
+        removed: list[str] = []
+        errors: list[str] = []
+        if remove:
+            for path, _description in low_quality:
+                try:
+                    os.remove(path)
+                except OSError as exc:
+                    errors.append(f"{path}: {exc}")
+                    continue
+                removed.append(path)
+                refs = (
+                    db.execute(select(Track).where(Track.local_path == path))
+                    .scalars()
+                    .all()
+                )
+                for track in refs:
+                    track.local_path = None
+                    track.format = None
+                    track.bitrate = None
+                    track.sample_rate = None
+                    track.bit_depth = None
+                    track.download_provider = None
+                    track.download_source_url = None
+                    if track.status != "skipped":
+                        track.status = "pending"
+                db.commit()
+                try:
+                    prune_empty_parents(path, music_dir)
+                except Exception:
+                    pass
+
+        if job:
+            job.tracks_downloaded = len(removed) if remove else len(low_quality)
+            job.tracks_failed = len(errors)
+            notes = []
+            label = "removed" if remove else "below floor"
+            if low_quality:
+                notes.append(
+                    f"{label} ({len(removed) if remove else len(low_quality)}): "
+                    + "; ".join(
+                        f"{path} [{quality}]" for path, quality in low_quality[:10]
+                    )
+                )
+            if unclassified:
+                notes.append(
+                    f"left unchanged (unclassified/active, {len(unclassified)}): "
+                    + "; ".join(
+                        f"{path} [{reason}]" for path, reason in unclassified[:10]
+                    )
+                )
+            notes.extend(errors)
+            job.error = "; ".join(notes)[:2000] or None
+            job.status = "success" if not errors else "failed"
+            job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            db.commit()
+        log.info(
+            "job=%s action=quality-prune status=done below_floor=%s removed=%s unclassified=%s errors=%s",
+            job_id,
+            len(low_quality),
+            len(removed),
+            len(unclassified),
+            len(errors),
+        )
+    except Exception as exc:
+        log.exception("job=%s action=quality-prune status=error", job_id)
+        try:
+            job = db.get(SyncJob, job_id)
+            if job:
+                job.status = "failed"
+                job.error = str(exc)[:1000]
+                job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()

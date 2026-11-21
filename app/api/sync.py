@@ -229,6 +229,45 @@ def library_dedup(payload: dict | None = None, db: Session = Depends(get_db)):
     return {"ok": True, "job_id": job.id, "remove": remove, "non_audio": non_audio}
 
 
+@router.post("/api/library/quality-prune")
+def library_quality_prune(payload: dict | None = None, db: Session = Depends(get_db)):
+    """Preview or remove measured lossy files below 320 kbps."""
+    import threading
+    from fastapi import HTTPException
+    from app.db.database import SessionLocal
+    from app.sync.library import run_library_quality_prune
+
+    running = (
+        db.execute(
+            select(SyncJob).where(
+                SyncJob.playlist_id.is_(None),
+                SyncJob.status == "running",
+                SyncJob.finished_at.is_(None),
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if running:
+        raise HTTPException(
+            status_code=409, detail=f"Library job already running (job {running.id})"
+        )
+    payload = payload or {}
+    remove = payload.get("remove", False)
+    if not isinstance(remove, bool):
+        raise HTTPException(status_code=422, detail="remove must be a boolean")
+    job = SyncJob(playlist_id=None, status="running")
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    threading.Thread(
+        target=run_library_quality_prune,
+        args=(SessionLocal, job.id, remove, 320),
+        daemon=True,
+    ).start()
+    return {"ok": True, "job_id": job.id, "remove": remove, "floor_kbps": 320}
+
+
 def build_stats(db: Session) -> dict:
     from sqlalchemy import func, desc
     from app.db.models import Playlist, PlaylistTrack, Track

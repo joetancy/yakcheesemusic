@@ -44,6 +44,7 @@ Other env (see `compose.yaml`): `DATABASE_URL`, `MUSIC_DIR`, `TZ=Asia/Singapore`
 - **Library maintenance** (dashboard buttons, all with live job status + dry runs):
   - `rescan` — delete unplayable (0-byte, corrupt) files, queue re-download
   - `dedup` — delete orphan files and sidecars (`.lrc` etc.), report byte-identical groups; `_Playlists` and referenced files are never touched
+  - `quality-prune` — preview or delete measured lossy audio below 320 kbps and queue tracked songs for re-download; lossless and unclassified files are kept
   - ReplayGain sweep (−14 LUFS, always rewrites tags), lossless→MP3 convert
 - **Players** — physical `.m3u` files per playlist under `/music/_Playlists`; files are stored world-readable so Navidrome/Jellyfin (uid 1000) can play root-written downloads.
 
@@ -51,7 +52,7 @@ Other env (see `compose.yaml`): `DATABASE_URL`, `MUSIC_DIR`, `TZ=Asia/Singapore`
 
 - Playlists: `GET/POST /api/playlists`, `PATCH/DELETE /api/playlists/{id}`, `POST …/scan|sync|m3u`, `GET …/tracks`
 - Tracks: `GET /api/tracks?status=`, `GET/POST …/{id}/search` (async, `{"query"}` optional), `…/download|retry|reject|unreject|skip|unskip`, `POST /api/tracks/retry-all`
-- Library jobs: `POST /api/replaygain|library/convert|library/retag|library/rescan|library/dedup`, `GET /api/jobs[/{id}]`, `GET /api/stats`
+- Library jobs: `POST /api/replaygain|library/convert|library/retag|library/rescan|library/dedup|library/quality-prune`, `GET /api/jobs[/{id}]`, `GET /api/stats`
 
 ## Local dev
 

@@ -39,6 +39,7 @@
 <div class="card action-card"><header><strong>ReplayGain</strong><p>Normalize loudness across your library.</p></header><button class="btn" data-variant="outline" onclick="rgSweep(this)">Apply ReplayGain</button><span id="rg-result" class="action-result muted" role="status" aria-live="polite"></span></div>
 <div class="card action-card"><header><strong>Check files</strong><p>Find unplayable files and queue replacements.</p></header><div class="action-buttons"><button class="btn" data-variant="destructive" onclick="rescan(true,this)">Rescan &amp; remove</button><button class="btn" data-variant="outline" onclick="rescan(false,this)">Preview file check</button></div><span id="rescan-result" class="action-result muted" role="status" aria-live="polite"></span></div>
 <div class="card action-card"><header><strong>Find duplicates</strong><p>Identify duplicate or orphaned files.</p></header><div class="action-buttons"><button class="btn" data-variant="destructive" onclick="dedup(true,this)">Remove files</button><button class="btn" data-variant="outline" onclick="dedup(false,this)">Preview duplicates</button></div><span id="dedup-result" class="action-result muted" role="status" aria-live="polite"></span></div>
+<div class="card action-card"><header><strong>Quality floor</strong><p>Keep lossless audio and lossy files measured at 320 kbps or higher.</p></header><div class="action-buttons"><button class="btn" data-variant="destructive" onclick="qualityPrune(true,this)">Prune below 320 kbps</button><button class="btn" data-variant="outline" onclick="qualityPrune(false,this)">Preview low quality</button></div><span id="quality-prune-result" class="action-result muted" role="status" aria-live="polite"></span></div>
 </div>
 </details>
 
@@ -68,6 +69,12 @@ async function dedup(remove,btn){
   const el=document.getElementById('dedup-result');setFeedback(el,'Starting duplicate scan…','loading');setBusy(btn,true,'Starting…');
   try{trackJob(await readResponse(await fetch('/api/library/dedup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({remove, non_audio:remove})})),'dedup-result',null,btn);}
   catch(e){setFeedback(el,`Could not start duplicate scan: ${e.message}`,'error');setBusy(btn,false);}
+}
+async function qualityPrune(remove,btn){
+  if(remove && !confirm('Delete lossy audio files measured below 320 kbps and queue tracked songs for re-download? Lossless and unclassified files will be kept.')) return;
+  const el=document.getElementById('quality-prune-result');setFeedback(el,'Starting quality scan…','loading');setBusy(btn,true,'Starting…');
+  try{trackJob(await readResponse(await fetch('/api/library/quality-prune',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({remove})})),'quality-prune-result',null,btn);}
+  catch(e){setFeedback(el,`Could not start quality scan: ${e.message}`,'error');setBusy(btn,false);}
 }
 function set(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
 function tlist(items){

@@ -56,3 +56,45 @@ def probe_audio(path: str) -> dict:
     if bd:
         out["bit_depth"] = int(bd)
     return out
+
+
+def below_bitrate_floor(path: str, floor_kbps: int = 320) -> tuple[bool | None, str]:
+    """Classify a file against a bitrate floor.
+
+    Returns (True, description) for files below the floor, (False, description)
+    for lossless or sufficiently high-bitrate audio, and (None, description)
+    when the codec or bitrate cannot be established safely.
+    """
+    from pathlib import Path
+    from mutagen import File as MFile
+
+    try:
+        audio = MFile(path)
+    except Exception as exc:
+        return None, f"unreadable ({type(exc).__name__})"
+    if audio is None or not getattr(audio, "info", None):
+        return None, "audio information unavailable"
+
+    info = audio.info
+    suffix = Path(path).suffix.lower()
+    codec = str(
+        getattr(info, "codec", "") or getattr(info, "codec_description", "") or ""
+    ).lower()
+    info_type = type(info).__name__.lower()
+    lossless_exts = {".flac", ".alac", ".wav", ".wv", ".ape", ".aif", ".aiff"}
+    lossless_codecs = ("flac", "alac", "wavpack", "ape", "pcm")
+    if (
+        suffix in lossless_exts
+        or any(name in codec for name in lossless_codecs)
+        or any(name in info_type for name in ("flac", "wavpack", "ape", "aiff", "wave"))
+    ):
+        label = codec.upper() if codec else suffix.lstrip(".").upper()
+        return False, f"{label} lossless"
+
+    bitrate = getattr(info, "bitrate", None)
+    if not bitrate:
+        return None, f"{codec or suffix.lstrip('.').upper() or 'unknown'} bitrate unavailable"
+    bitrate_kbps = int(round(bitrate / 1000))
+    label = codec.upper() if codec else suffix.lstrip(".").upper()
+    description = f"{label or 'audio'} {bitrate_kbps} kbps"
+    return bitrate_kbps < floor_kbps, description
